@@ -30,3 +30,6 @@ func PrintScanHeader(url string) {
 func PrintRedirectToDifferentDomain(url string) {
 	fmt.Printf("\033[33m  ↪ [DEBUG] Redirected to different domain: %s\033[0m\n", url)
 }
+func PrintSuspiciousPattern(url, message string) {
+	fmt.Printf("\033[33m  [!] %s: %s\033[0m\n", message, url)
+}
