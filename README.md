@@ -62,11 +62,18 @@ redirectAmount := 100
 
 ## Project Structure:
 
-📁 internal/analyzer → HTML analysis logic
-📁 internal/output → Output formatting functions
-📁 internal/scanner → Redirect tracing logic
-📁 testdata/ → Example input files (e.g., urls.txt)
-📄 main.go → Entry point
+RedirectHunter/
+├── internal/
+│ ├── analyzer/
+│ │ └── analyzer.go # HTML analysis logic (e.g. form, JS redirect, meta-refresh detection)
+│ ├── output/
+│ │ └── formatter.go # Output formatting functions
+│ └── scanner/
+│ └── scanner.go # Redirect chain tracing and request logic
+├── testdata/
+│ └── urls.txt # Example input file with test URLs
+├── README.md # Project documentation
+├── main.go # Program entry point
 
 **Legal Notice**:
 
