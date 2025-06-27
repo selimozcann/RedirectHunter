@@ -62,11 +62,11 @@ redirectAmount := 100
 
 ## Project Structure:
 
-cmd/               - CLI entry using Cobra
-internal/output/   - Output formatting functions
-internal/scanner/  - Scanning logic and HTML analysis
-testdata/          - Example input files
-main.go            - Entry point
+📁 internal/analyzer → HTML analysis logic
+📁 internal/output → Output formatting functions
+📁 internal/scanner → Redirect tracing logic
+📁 testdata/ → Example input files (e.g., urls.txt)
+📄 main.go → Entry point
 
 **Legal Notice**:
 
