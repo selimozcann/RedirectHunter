@@ -3,9 +3,9 @@ package scanner
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
+	"redirecthunter/internal/analyzer"
 	"redirecthunter/internal/output"
 	"strings"
 	"time"
@@ -76,7 +76,7 @@ func traceRedirectChain(startURL string) {
 			}
 			currentURL = loc
 		} else {
-			log.Println("Http status is not => resp.StatusCode >= 300 && resp.StatusCode < 400")
+			// log.Println("Http status is not => resp.StatusCode >= 300 && resp.StatusCode < 400")
 			finalDomain := extractDomain(currentURL)
 			startDomain := extractDomain(startURL)
 
@@ -85,6 +85,7 @@ func traceRedirectChain(startURL string) {
 			} else {
 				output.PrintFinalURL(currentURL)
 			}
+			analyzer.AnalyzeHTML(currentURL)
 			break
 		}
 	}
