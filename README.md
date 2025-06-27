@@ -60,7 +60,7 @@ To change it, edit the `redirectAmount` variable in `scanner.go`:
 
 redirectAmount := 100
 
-Project Structure:
+## Project Structure:
 
 cmd/               - CLI entry using Cobra
 internal/output/   - Output formatting functions
