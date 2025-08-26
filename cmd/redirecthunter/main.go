@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/selimozcann/RedirectHunter/internal/banner"
 	"github.com/selimozcann/RedirectHunter/internal/httpclient"
 	"github.com/selimozcann/RedirectHunter/internal/model"
 	"github.com/selimozcann/RedirectHunter/internal/output"
@@ -20,6 +21,7 @@ import (
 )
 
 func main() {
+
 	var (
 		urlFlag    string
 		wordlist   string
@@ -36,6 +38,7 @@ func main() {
 		proxyStr   string
 		insecure   bool
 	)
+	banner.PrintBanner()
 
 	flag.StringVar(&urlFlag, "u", "", "Single URL (supports FUZZ)")
 	flag.StringVar(&wordlist, "w", "", "Wordlist file")

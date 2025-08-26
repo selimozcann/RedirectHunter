@@ -1,5 +1,0 @@
-https://httpbin.org/redirect-to?url=https://example.com
-https://httpbin.org/absolute-redirect/2
-https://testpages.herokuapp.com/styled/basic-html-form-test.html
-https://httpbin.org/redirect-to?url=https://testpages.herokuapp.com/styled/basic-html-form-test.html
-
