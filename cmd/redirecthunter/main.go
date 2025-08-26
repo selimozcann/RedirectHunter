@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"redirecthunter/internal/httpclient"
-	"redirecthunter/internal/model"
-	"redirecthunter/internal/output"
-	"redirecthunter/internal/runner"
-	"redirecthunter/internal/trace"
+	"github.com/selimozcann/RedirectHunter/internal/httpclient"
+	"github.com/selimozcann/RedirectHunter/internal/model"
+	"github.com/selimozcann/RedirectHunter/internal/output"
+	"github.com/selimozcann/RedirectHunter/internal/runner"
+	"github.com/selimozcann/RedirectHunter/internal/trace"
 )
 
 func main() {

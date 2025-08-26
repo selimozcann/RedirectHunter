@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"redirecthunter/internal/model"
+	"github.com/selimozcann/RedirectHunter/internal/model"
 )
 
 // JSONLWriter writes Result objects as JSON Lines.

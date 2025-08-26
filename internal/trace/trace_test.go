@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"redirecthunter/internal/httpclient"
-	"redirecthunter/internal/trace"
+	"github.com/selimozcann/RedirectHunter/internal/httpclient"
+	"github.com/selimozcann/RedirectHunter/internal/trace"
 )
 
 func setupServer() *httptest.Server {

@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"time"
 
-	"redirecthunter/internal/detect"
-	"redirecthunter/internal/htmlscan"
-	"redirecthunter/internal/model"
+	"github.com/selimozcann/RedirectHunter/internal/detect"
+	"github.com/selimozcann/RedirectHunter/internal/htmlscan"
+	"github.com/selimozcann/RedirectHunter/internal/model"
 )
 
 // Tracer performs manual redirect tracing.

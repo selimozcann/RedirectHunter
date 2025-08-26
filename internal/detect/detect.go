@@ -4,8 +4,8 @@ import (
 	"net/url"
 	"strings"
 
-	"redirecthunter/internal/model"
-	"redirecthunter/internal/util"
+	"github.com/selimozcann/RedirectHunter/internal/model"
+	"github.com/selimozcann/RedirectHunter/internal/util"
 )
 
 var tokenKeys = map[string]bool{

@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"redirecthunter/internal/model"
-	"redirecthunter/internal/trace"
+	"github.com/selimozcann/RedirectHunter/internal/model"
+	"github.com/selimozcann/RedirectHunter/internal/trace"
 )
 
 // Config holds settings for the runner.
