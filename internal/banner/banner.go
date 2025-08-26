@@ -12,7 +12,7 @@ func PrintBanner() {
 	cyan := color.New(color.FgCyan)
 	green := color.New(color.FgGreen)
 
-	cyan.Println("════════════════════════════════════════════════")
-	green.Println("    Security Research Tool | Author: https://github.com/selimozcann")
-	cyan.Println("════════════════════════════════════════════════")
+	_, _ = cyan.Println("════════════════════════════════════════════════")
+	_, _ = green.Println("    Security Research Tool | Author: https://github.com/selimozcann")
+	_, _ = cyan.Println("════════════════════════════════════════════════")
 }

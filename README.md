@@ -5,10 +5,25 @@ It supports parallel scanning, optional HTML/JavaScript redirect detection and J
 
 ## Usage
 
+### Quick Start
+
+Single URL status viewer:
+
+```bash
+cd RedirectHunter
+go run . https://example.com
 ```
-go run ./cmd/redirecthunter  -u https://example.com/redirect
-go run ./cmd/redirecthunter  -u https://host/redirect?to=FUZZ -w words.txt -t 20 -rl 5 -js-scan -o out.jsonl
+
+Full redirect scanner:
+
+```bash
+cd RedirectHunter
+go run ./cmd/redirecthunter \
+    -u https://host/redirect?to=FUZZ \
+    -w words.txt -t 20 -rl 5 -js-scan -o out.jsonl
 ```
+
+The output color-codes HTTP statuses: 2xx responses (e.g., 200) appear green, 3xx such as 302 appear blue, and 4xx like 400 appear red.
 
 ### Flags
 
