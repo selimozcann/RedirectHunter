@@ -58,3 +58,9 @@ go test ./...
 ```
 
 The project targets Go 1.24.4 and relies only on the standard library.
+
+## Legal Disclaimer
+
+This tool is intended for educational and authorized security testing only.
+Use it strictly within legal boundaries and only on systems you have explicit permission to test.
+
