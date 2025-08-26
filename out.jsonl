@@ -1,1 +1,0 @@
-{"target":"https://httpbin.org/redirect?to=https://example.com","chain":[{"index":0,"url":"https://httpbin.org/redirect?to=https://example.com","status":503,"via":"http-location","time_ms":1424,"final":true}],"started_at":"2025-08-26T19:25:13.344265772+04:00","duration_ms":1425}
