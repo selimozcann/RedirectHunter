@@ -6,8 +6,8 @@ It supports parallel scanning, optional HTML/JavaScript redirect detection and J
 ## Usage
 
 ```
-redirecthunter -u https://example.com/redirect
-redirecthunter -u https://host/redirect?to=FUZZ -w words.txt -t 20 -rl 5 -js-scan -o out.jsonl
+./cmd/redirecthunter  -u https://example.com/redirect
+./cmd/redirecthunter  -u https://host/redirect?to=FUZZ -w words.txt -t 20 -rl 5 -js-scan -o out.jsonl
 ```
 
 ### Flags

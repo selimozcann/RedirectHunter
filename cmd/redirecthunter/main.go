@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -91,6 +92,13 @@ func main() {
 	writer := output.NewJSONLWriter(out)
 	for _, r := range results {
 		if shouldOutput(r, mc) {
+			data, err := json.MarshalIndent(r, "", "  ")
+			if err != nil {
+				fmt.Println("marshal error:", err)
+				continue
+			}
+
+			fmt.Println(string(data))
 			_ = writer.WriteResult(r)
 		}
 	}
