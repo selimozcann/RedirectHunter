@@ -1,3 +1,1 @@
-https://google.com/
-https://example.org/dashboard
-http://127.0.0.1/admin
+https://example.com
