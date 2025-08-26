@@ -1,81 +1,60 @@
-RedirectHunter
-==============
+# redirecthunter
 
-RedirectHunter is a command-line tool for analyzing URL redirection chains. It follows HTTP redirects up to a configurable limit, detects redirect loops, logs transitions between domains, and inspects final landing pages for potential security issues such as HTML forms, meta-refresh tags, and JavaScript-based redirects.
+redirecthunter traces full HTTP redirect chains and flags risky behavior like SSRF targets, HTTPS downgrades and token leakage.
+It supports parallel scanning, optional HTML/JavaScript redirect detection and JSONL output for downstream processing.
 
-Features:
+## Usage
 
-- Manual tracking of up to N redirects (default: 10)
-- Detection of redirect loops and missing Location headers
-- Identification of cross-domain redirects
-- Analysis of final landing pages for:
-    - <form> elements
-    - HTML meta refresh tags
-    - JavaScript-based redirects using window.location
-- Terminal output with color-coded logs
-- Modular and extensible Go codebase
+```
+redirecthunter -u https://example.com/redirect
+redirecthunter -u https://host/redirect?to=FUZZ -w words.txt -t 20 -rl 5 -js-scan -o out.jsonl
+```
 
-Use Cases:
+### Flags
 
-- Bug bounty hunting
-- Open redirect analysis
-- Redirect behavior tracing in penetration tests
-- Security assessment of final landing pages
+| Flag | Description |
+| ---- | ----------- |
+| `-u` | Single URL (supports `FUZZ` placeholder) |
+| `-w` | Wordlist file (used when `-u` contains `FUZZ`; stdin used if omitted) |
+| `-t` | Threads (default 10) |
+| `-rl` | Global rate limit req/sec (default 0 = unlimited) |
+| `-timeout` | Per-target timeout (default 8s) |
+| `-retries` | Retry count for transient errors (default 1) |
+| `-max-chain` | Max hops including meta/JS (default 15) |
+| `-mc` | Match status classes/codes (e.g. `30x,200,404`) |
+| `-js-scan` | Enable HTML/JS redirect detection |
+| `-o` | Output file (default stdout) |
+| `-of` | Output format: `jsonl` (default) |
+| `-H` | Extra HTTP header (repeatable) |
+| `-cookie` | Cookie header |
+| `-proxy` | HTTP(S) proxy URL |
+| `-insecure` | Skip TLS verification |
 
-Installation:
+## JSONL Schema
 
-Clone the repository and build using Go:
+Each line in the output represents a `Result` object:
 
-git clone https://github.com/selimozcann/RedirectHunter.git
-cd RedirectHunter
-go build -o redirectHunter
+```json
+{
+  "target": "https://example.com",
+  "chain": [
+    {"index":0,"url":"https://example.com","status":302,"via":"http-location","time_ms":12},
+    {"index":1,"url":"https://other","status":200,"via":"http-location","time_ms":20,"final":true}
+  ],
+  "findings": [
+    {"type":"HTTPS_DOWNGRADE","at_hop":1,"severity":"medium","detail":"https://a -> http://b"}
+  ],
+  "started_at": "2024-01-01T00:00:00Z",
+  "duration_ms": 42
+}
+```
 
-Usage:
+## Development
 
-Prepare a text file containing URLs (e.g. `urls.txt`), one per line:
+```
+go vet ./...
+golangci-lint run ./...
+go test ./...
+```
 
-https://httpbin.org/redirect-to?url=https://example.com
-https://httpbin.org/absolute-redirect/2
-
-Run the tool:
-
-go run main.go --file testdata/urls.txt
-
-Or run the compiled binary:
-
-./redirectHunter --file testdata/urls.txt
-
-Sample Output:
-
-[+] Scanning: https://httpbin.org/redirect-to?url=https://example.com
-↪ https://httpbin.org/redirect-to?url=https://example.com → 302
-↪ https://example.com → 200
-↪ [DEBUG] Redirected to different domain: https://example.com
-[!] <form> tag: https://example.com
-
-Configuration:
-
-The default maximum number of redirects is 10.
-To change it, edit the `redirectAmount` variable in `scanner.go`:
-
-redirectAmount := 100
-
-## Project Structure
-
-- **internal/**
-  - **analyzer/** - HTML analysis logic
-    - `analyzer.go` - Form, JS redirect, meta-refresh detection
-  - **output/** - Output formatting functions  
-    - `formatter.go` - Result formatting and display
-  - **scanner/** - Redirect tracing logic
-    - `scanner.go` - HTTP redirect chain tracking
-- **testdata/** - Test data
-  - `urls.txt` - Example URLs for testing
-- `main.go` - Program entry point
-- `README.md` - Documentation
-
-**Legal Notice**:
-
-**This tool is intended for educational and authorized testing purposes only.
-Do not scan domains you do not own or have explicit permission to test.**
-
+The project targets Go 1.24.4 and relies only on the standard library.
