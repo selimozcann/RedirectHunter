@@ -3,9 +3,9 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +17,7 @@ import (
 	"github.com/selimozcann/RedirectHunter/internal/model"
 	"github.com/selimozcann/RedirectHunter/internal/output"
 	"github.com/selimozcann/RedirectHunter/internal/runner"
+	"github.com/selimozcann/RedirectHunter/internal/statuscolor"
 	"github.com/selimozcann/RedirectHunter/internal/trace"
 )
 
@@ -82,7 +83,7 @@ func main() {
 	ctx := context.Background()
 	results := run.Run(ctx, targets)
 
-	out := os.Stdout
+	out := io.Discard
 	if outFile != "" {
 		f, err := os.Create(outFile)
 		if err != nil {
@@ -95,13 +96,7 @@ func main() {
 	writer := output.NewJSONLWriter(out)
 	for _, r := range results {
 		if shouldOutput(r, mc) {
-			data, err := json.MarshalIndent(r, "", "  ")
-			if err != nil {
-				fmt.Println("marshal error:", err)
-				continue
-			}
-
-			fmt.Println(string(data))
+			statuscolor.PrintResult(r)
 			_ = writer.WriteResult(r)
 		}
 	}
