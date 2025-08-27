@@ -13,8 +13,9 @@ type Hop struct {
 	Final  bool   `json:"final"`
 }
 
-// Finding represents a detection within a redirect chain.
-type Finding struct {
+// Risk represents a security issue discovered in a redirect chain.
+// Severity uses a low/medium/high scale for quick triage.
+type Risk struct {
 	Type     string            `json:"type"`
 	AtHop    int               `json:"at_hop"`
 	Severity string            `json:"severity"`
@@ -26,7 +27,7 @@ type Finding struct {
 type Result struct {
 	Target     string    `json:"target"`
 	Chain      []Hop     `json:"chain"`
-	Findings   []Finding `json:"findings,omitempty"`
+	Risks      []Risk    `json:"risks,omitempty"`
 	StartedAt  time.Time `json:"started_at"`
 	DurationMs int64     `json:"duration_ms"`
 	Error      string    `json:"error,omitempty"`
