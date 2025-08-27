@@ -90,15 +90,13 @@ func main() {
 	targets := collectTargets(urlFlag, wordlist)
 	ctx := context.Background()
 	results := run.Run(ctx, targets)
-
-	// run plugins
+ 
 	plugins := plugin.Default()
 	for i := range results {
 		for _, p := range plugins {
 			results[i].Risks = append(results[i].Risks, p.Evaluate(ctx, &results[i])...)
 		}
 	}
-
 	out := io.Discard
 	if outFile != "" {
 		f, err := os.Create(outFile)
@@ -124,7 +122,6 @@ func main() {
 			_ = writer.WriteResult(r)
 		}
 	}
-
 	if htmlFile != "" {
 		if err := report.WriteHTML(htmlFile, results); err != nil {
 			fmt.Fprintf(os.Stderr, "html report: %v\n", err)
