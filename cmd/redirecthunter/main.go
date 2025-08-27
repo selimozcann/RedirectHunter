@@ -16,8 +16,6 @@ import (
 	"github.com/selimozcann/RedirectHunter/internal/httpclient"
 	"github.com/selimozcann/RedirectHunter/internal/model"
 	"github.com/selimozcann/RedirectHunter/internal/output"
-	"github.com/selimozcann/RedirectHunter/internal/plugin"
-	"github.com/selimozcann/RedirectHunter/internal/report"
 	"github.com/selimozcann/RedirectHunter/internal/runner"
 	"github.com/selimozcann/RedirectHunter/internal/statuscolor"
 	"github.com/selimozcann/RedirectHunter/internal/trace"
@@ -36,13 +34,10 @@ func main() {
 		mc         string
 		jsScan     bool
 		outFile    string
-		htmlFile   string
+		outFormat  string
 		cookie     string
 		proxyStr   string
 		insecure   bool
-		silent     bool
-		summary    bool
-		onlyRisky  bool
 	)
 	banner.PrintBanner()
 
@@ -55,14 +50,11 @@ func main() {
 	flag.IntVar(&maxChain, "max-chain", 15, "Max hops including meta/js")
 	flag.StringVar(&mc, "mc", "", "Match status classes/codes")
 	flag.BoolVar(&jsScan, "js-scan", false, "Enable HTML/JS redirect detection")
-	flag.StringVar(&outFile, "o", "", "JSONL output file")
-	flag.StringVar(&htmlFile, "html", "", "HTML report file")
+	flag.StringVar(&outFile, "o", "", "Output file")
+	flag.StringVar(&outFormat, "of", "jsonl", "Output format")
 	flag.StringVar(&cookie, "cookie", "", "Cookie header")
 	flag.StringVar(&proxyStr, "proxy", "", "HTTP proxy URL")
 	flag.BoolVar(&insecure, "insecure", false, "Skip TLS verification")
-	flag.BoolVar(&silent, "silent", false, "Suppress chain output")
-	flag.BoolVar(&summary, "summary", false, "Print per-target summary")
-	flag.BoolVar(&onlyRisky, "only-risky", false, "Show only results with risks")
 	headers := http.Header{}
 	flag.Func("H", "Extra header", func(s string) error {
 		parts := strings.SplitN(s, ":", 2)
@@ -90,13 +82,7 @@ func main() {
 	targets := collectTargets(urlFlag, wordlist)
 	ctx := context.Background()
 	results := run.Run(ctx, targets)
- 
-	plugins := plugin.Default()
-	for i := range results {
-		for _, p := range plugins {
-			results[i].Risks = append(results[i].Risks, p.Evaluate(ctx, &results[i])...)
-		}
-	}
+
 	out := io.Discard
 	if outFile != "" {
 		f, err := os.Create(outFile)
@@ -109,22 +95,9 @@ func main() {
 	}
 	writer := output.NewJSONLWriter(out)
 	for _, r := range results {
-		if onlyRisky && len(r.Risks) == 0 {
-			continue
-		}
 		if shouldOutput(r, mc) {
-			if !silent {
-				statuscolor.PrintResult(r)
-			}
-			if summary {
-				fmt.Printf("%s: %d hops, %d risks\n", r.Target, len(r.Chain), len(r.Risks))
-			}
+			statuscolor.PrintResult(r)
 			_ = writer.WriteResult(r)
-		}
-	}
-	if htmlFile != "" {
-		if err := report.WriteHTML(htmlFile, results); err != nil {
-			fmt.Fprintf(os.Stderr, "html report: %v\n", err)
 		}
 	}
 }
@@ -181,5 +154,5 @@ func shouldOutput(res model.Result, mc string) bool {
 			return true
 		}
 	}
-	return len(res.Risks) > 0
+	return len(res.Findings) > 0
 }

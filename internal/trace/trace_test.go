@@ -79,26 +79,26 @@ func TestDetections(t *testing.T) {
 
 	// SSRF
 	ssrf := tr.Trace(context.Background(), srv.URL+"/internal", 5, false)
-	if len(ssrf.Risks) == 0 || ssrf.Risks[0].Type != "SSRF" {
-		t.Fatalf("expected SSRF risk")
+	if len(ssrf.Findings) == 0 || ssrf.Findings[0].Type != "SSRF" {
+		t.Fatalf("expected SSRF finding")
 	}
 
 	// Token leak
 	token := tr.Trace(context.Background(), srv.URL+"/token?access_token=abc", 5, false)
 	found := false
-	for _, f := range token.Risks {
+	for _, f := range token.Findings {
 		if f.Type == "TOKEN_LEAK" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("expected token leak risk")
+		t.Fatalf("expected token leak finding")
 	}
 
 	// Loop
 	loop := tr.Trace(context.Background(), srv.URL+"/loop", 3, false)
 	found = false
-	for _, f := range loop.Risks {
+	for _, f := range loop.Findings {
 		if f.Type == "CHAIN_LOOP" {
 			found = true
 		}
@@ -116,12 +116,12 @@ func TestDetections(t *testing.T) {
 	tr2 := trace.New(insecureClient)
 	down := tr2.Trace(context.Background(), httpsSrv.URL, 5, false)
 	found = false
-	for _, f := range down.Risks {
+	for _, f := range down.Findings {
 		if f.Type == "HTTPS_DOWNGRADE" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("expected https downgrade risk")
+		t.Fatalf("expected https downgrade finding")
 	}
 }
