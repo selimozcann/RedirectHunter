@@ -1,54 +1,57 @@
-# redirecthunter
+# RedirectHunter v3
 
-redirecthunter traces full HTTP redirect chains and flags risky behavior like SSRF targets, HTTPS downgrades and token leakage.
-It supports parallel scanning, optional HTML/JavaScript redirect detection and JSONL output for downstream processing.
+RedirectHunter is a security-focused CLI that discovers and traces full redirect chains. It follows HTTP 3xx, JavaScript and HTML meta refreshes, then scores any risky behavior such as open redirects, token leakage, SSRF or HTTPS downgrades.
 
-## Usage
+## Features
+- Risk scoring on findings (low/medium/high)
+- Plugin system with built-in final URL SSRF detector
+- HTML report with redirect chain visualisation
+- Custom header injection and cookie support
+- Redirect loop and excessive chain detection
+- Landing page phishing heuristics
+- `--silent`, `--summary` and `--only-risky` output modes
+- Colourised terminal output aware of hop types
+- Rate limited parallel scanning (default 10 threads)
+- JSONL output format for downstream processing
 
-### Quick Start
-
-Single URL status viewer:
-
+## Quick start
+Scan a single URL:
 ```bash
-cd RedirectHunter
-go run . https://example.com
+go run ./cmd/redirecthunter -u https://example.com
 ```
 
-Full redirect scanner:
-
+Fuzz a parameter and write JSONL and HTML reports:
 ```bash
-cd RedirectHunter
 go run ./cmd/redirecthunter \
-    -u https://host/redirect?to=FUZZ \
-    -w words.txt -t 20 -rl 5 -js-scan -o out.jsonl
+  -u https://host/redirect?to=FUZZ \
+  -w words.txt -t 20 -rl 5 \
+  -o out.jsonl -html report.html
 ```
 
-The output color-codes HTTP statuses: 2xx responses (e.g., 200) appear green, 3xx such as 302 appear blue, and 4xx like 400 appear red.
-
-### Flags
-
+## Flags
 | Flag | Description |
-| ---- | ----------- |
+|------|-------------|
 | `-u` | Single URL (supports `FUZZ` placeholder) |
-| `-w` | Wordlist file (used when `-u` contains `FUZZ`; stdin used if omitted) |
+| `-w` | Wordlist when `-u` contains `FUZZ`; stdin if omitted |
 | `-t` | Threads (default 10) |
-| `-rl` | Global rate limit req/sec (default 0 = unlimited) |
+| `-rl` | Global rate limit req/sec (0 = unlimited) |
 | `-timeout` | Per-target timeout (default 8s) |
 | `-retries` | Retry count for transient errors (default 1) |
 | `-max-chain` | Max hops including meta/JS (default 15) |
-| `-mc` | Match status classes/codes (e.g. `30x,200,404`) |
-| `-js-scan` | Enable HTML/JS redirect detection |
-| `-o` | Output file (default stdout) |
-| `-of` | Output format: `jsonl` (default) |
+| `-js-scan` | Enable HTML/JS redirect detection (default true) |
+| `-o` | JSONL output file |
+| `-html` | HTML report output file |
 | `-H` | Extra HTTP header (repeatable) |
 | `-cookie` | Cookie header |
 | `-proxy` | HTTP(S) proxy URL |
 | `-insecure` | Skip TLS verification |
+| `-silent` | Suppress detailed chain output |
+| `-summary` | Print one-line summary per target |
+| `-only-risky` | Output only results with findings |
+| `-plugins` | Comma-separated plugins to enable (default `final-ssrf`) |
 
-## JSONL Schema
-
+## JSONL schema
 Each line in the output represents a `Result` object:
-
 ```json
 {
   "target": "https://example.com",
@@ -65,17 +68,13 @@ Each line in the output represents a `Result` object:
 ```
 
 ## Development
-
-```
+```bash
 go vet ./...
 golangci-lint run ./...
 go test ./...
 ```
 
-The project targets Go 1.24.4 and relies only on the standard library.
+RedirectHunter targets Go 1.24.4 and relies only on the standard library.
 
 ## Legal Disclaimer
-
-This tool is intended for educational and authorized security testing only.
-Use it strictly within legal boundaries and only on systems you have explicit permission to test.
-
+This tool is intended for educational and authorised security testing only. Use it strictly within legal boundaries and only on systems you have explicit permission to test.

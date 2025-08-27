@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"bytes"
 	"net/url"
 	"strings"
 
@@ -48,6 +49,19 @@ func TokenLeakage(u *url.URL, hop int) *model.Finding {
 				return &model.Finding{Type: "TOKEN_LEAK", Severity: "high", AtHop: hop, Detail: kv[0] + " in fragment"}
 			}
 		}
+	}
+	return nil
+}
+
+// PhishingIndicators performs a very small heuristic scan of the HTML body for
+// common phishing artefacts such as forms and password fields.
+func PhishingIndicators(body []byte, hop int) *model.Finding {
+	lower := bytes.ToLower(body)
+	if bytes.Contains(lower, []byte("<form")) && bytes.Contains(lower, []byte("password")) {
+		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "medium", AtHop: hop, Detail: "form with password field"}
+	}
+	if bytes.Contains(lower, []byte("document.forms")) || bytes.Contains(lower, []byte("eval(")) {
+		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "low", AtHop: hop, Detail: "suspicious javascript"}
 	}
 	return nil
 }

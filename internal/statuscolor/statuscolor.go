@@ -60,6 +60,6 @@ func PrintChain(target string) error {
 // PrintResult prints a pre-fetched redirect chain with color-coded statuses.
 func PrintResult(r model.Result) {
 	for _, h := range r.Chain {
-		fmt.Printf("%s %s%d%s\n", h.URL, colorFor(h.Status), h.Status, colorReset)
+		fmt.Printf("[%d] %s %s%d%s (%s) via %s\n", h.Index, h.URL, colorFor(h.Status), h.Status, colorReset, h.Method, h.Via)
 	}
 }
