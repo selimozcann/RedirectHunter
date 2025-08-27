@@ -37,7 +37,6 @@ func main() {
 		jsScan     bool
 		outFile    string
 		htmlFile   string
-		outFormat  string
 		cookie     string
 		proxyStr   string
 		insecure   bool
@@ -58,7 +57,6 @@ func main() {
 	flag.BoolVar(&jsScan, "js-scan", false, "Enable HTML/JS redirect detection")
 	flag.StringVar(&outFile, "o", "", "JSONL output file")
 	flag.StringVar(&htmlFile, "html", "", "HTML report file")
-	flag.StringVar(&outFormat, "of", "jsonl", "Output format")
 	flag.StringVar(&cookie, "cookie", "", "Cookie header")
 	flag.StringVar(&proxyStr, "proxy", "", "HTTP proxy URL")
 	flag.BoolVar(&insecure, "insecure", false, "Skip TLS verification")
