@@ -90,7 +90,7 @@ func main() {
 	targets := collectTargets(urlFlag, wordlist)
 	ctx := context.Background()
 	results := run.Run(ctx, targets)
- 
+
 	plugins := plugin.Default()
 	for i := range results {
 		for _, p := range plugins {
@@ -119,6 +119,7 @@ func main() {
 			if summary {
 				fmt.Printf("%s: %d hops, %d risks\n", r.Target, len(r.Chain), len(r.Risks))
 			}
+			// fmt.Println(string(data))
 			_ = writer.WriteResult(r)
 		}
 	}
