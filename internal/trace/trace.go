@@ -28,7 +28,7 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 
 	for i := 0; i < maxChain; i++ {
 		if _, ok := seen[current]; ok {
-			res.Findings = append(res.Findings, model.Finding{Type: "CHAIN_LOOP", Severity: "info", AtHop: i, Detail: current})
+			res.Risks = append(res.Risks, model.Risk{Type: "CHAIN_LOOP", Severity: "info", AtHop: i, Detail: current})
 			break
 		}
 		seen[current] = struct{}{}
@@ -50,14 +50,14 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 		u := resp.Request.URL
 
 		if f := detect.SSRF(u, i); f != nil {
-			res.Findings = append(res.Findings, *f)
+			res.Risks = append(res.Risks, *f)
 		}
 		if f := detect.TokenLeakage(u, i); f != nil {
-			res.Findings = append(res.Findings, *f)
+			res.Risks = append(res.Risks, *f)
 		}
 		if prevURL != nil {
 			if f := detect.HTTPSDowngrade(prevURL, u, i); f != nil {
-				res.Findings = append(res.Findings, *f)
+				res.Risks = append(res.Risks, *f)
 			}
 		}
 
@@ -93,17 +93,17 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 				// synthetic hop
 				i++
 				if i >= maxChain {
-					res.Findings = append(res.Findings, model.Finding{Type: "CHAIN_TOO_LONG", Severity: "info", AtHop: i})
+					res.Risks = append(res.Risks, model.Risk{Type: "CHAIN_TOO_LONG", Severity: "info", AtHop: i})
 					break
 				}
 				current = next.String()
 				res.Chain = append(res.Chain, model.Hop{Index: i, URL: current, Status: 0, Via: via})
 				prevURL = u
 				if f := detect.TokenLeakage(next, i); f != nil {
-					res.Findings = append(res.Findings, *f)
+					res.Risks = append(res.Risks, *f)
 				}
 				if f := detect.SSRF(next, i); f != nil {
-					res.Findings = append(res.Findings, *f)
+					res.Risks = append(res.Risks, *f)
 				}
 				continue
 			}
@@ -116,7 +116,7 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 	}
 
 	if len(res.Chain) >= maxChain {
-		res.Findings = append(res.Findings, model.Finding{Type: "CHAIN_TOO_LONG", Severity: "info", AtHop: maxChain})
+		res.Risks = append(res.Risks, model.Risk{Type: "CHAIN_TOO_LONG", Severity: "info", AtHop: maxChain})
 	}
 	res.DurationMs = time.Since(res.StartedAt).Milliseconds()
 	return res
