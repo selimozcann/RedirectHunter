@@ -46,7 +46,7 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 			break
 		}
 
-		hop := model.Hop{Index: i, URL: current, Status: resp.StatusCode, Via: "http-location", TimeMs: duration}
+		hop := model.Hop{Index: i, URL: current, Method: req.Method, Status: resp.StatusCode, Via: "http-location", TimeMs: duration}
 		u := resp.Request.URL
 
 		if f := detect.SSRF(u, i); f != nil {
@@ -84,20 +84,23 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 
 		// Non-redirect
 		ct := resp.Header.Get("Content-Type")
-		if jsScan && htmlscan.ShouldFetchBody(ct) {
-			next, via, _, ok := htmlscan.ReadAndDetect(resp.Body, 512*1024, u)
+		if htmlscan.ShouldFetchBody(ct) {
+			next, via, body, ok := htmlscan.ReadAndDetect(resp.Body, 512*1024, u)
 			_ = resp.Body.Close()
-			hop.Final = !ok
-			res.Chain = append(res.Chain, hop)
-			if ok {
-				// synthetic hop
+			if f := detect.PhishingIndicators(body, i); f != nil {
+				res.Findings = append(res.Findings, *f)
+			}
+			if jsScan && ok {
+				hop.Final = false
+				res.Chain = append(res.Chain, hop)
+				// synthetic hop for client-side redirect
 				i++
 				if i >= maxChain {
 					res.Findings = append(res.Findings, model.Finding{Type: "CHAIN_TOO_LONG", Severity: "info", AtHop: i})
 					break
 				}
 				current = next.String()
-				res.Chain = append(res.Chain, model.Hop{Index: i, URL: current, Status: 0, Via: via})
+				res.Chain = append(res.Chain, model.Hop{Index: i, URL: current, Method: http.MethodGet, Status: 0, Via: via})
 				prevURL = u
 				if f := detect.TokenLeakage(next, i); f != nil {
 					res.Findings = append(res.Findings, *f)
@@ -107,6 +110,8 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 				}
 				continue
 			}
+			hop.Final = true
+			res.Chain = append(res.Chain, hop)
 		} else {
 			_ = resp.Body.Close()
 			hop.Final = true

@@ -6,6 +6,7 @@ import "time"
 type Hop struct {
 	Index  int    `json:"index"`
 	URL    string `json:"url"`
+	Method string `json:"method"`
 	Status int    `json:"status"`
 	Via    string `json:"via"`
 	Reason string `json:"reason,omitempty"`
