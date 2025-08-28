@@ -78,3 +78,12 @@ RedirectHunter targets Go 1.24.4 and relies only on the standard library.
 
 ## Legal Disclaimer
 This tool is intended for educational and authorised security testing only. Use it strictly within legal boundaries and only on systems you have explicit permission to test.
+
+---
+
+## ☕ Support the Project
+
+RedirectHunter is a free and open-source tool developed with passion for the security community.  
+If you find it helpful or use it in your work, consider supporting its development ❤️
+
+[![Buy Me a Coffee](https://img.shields.io/badge/☕-Buy%20Me%20a%20Coffee-yellow?style=for-the-badge)](https://buymeacoffee.com/iamselimozcan)
