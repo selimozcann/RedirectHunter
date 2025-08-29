@@ -1,17 +1,17 @@
-# RedirectHunter v3
+# RedirectHunter
 
-RedirectHunter is a security-focused CLI that discovers and traces full redirect chains. It follows HTTP 3xx, JavaScript and HTML meta refreshes, then scores any risky behavior such as open redirects, token leakage, SSRF or HTTPS downgrades.
+RedirectHunter is a security-focused command-line tool that discovers and traces full redirect chains. It follows server-side HTTP 3xx, HTML meta refreshes, and JavaScript redirects, then scores any risky behaviour such as open redirects, token leakage, SSRF, or HTTPS downgrades.
 
 ## Features
-- Risk scoring on findings (low/medium/high)
-- Plugin system with built-in final URL SSRF detector
+- Severity scoring for findings (low/medium/high)
+- Plugin system with a built-in final URL SSRF detector
+- Configurable HTTP client with custom headers, cookies, and retry logic
 - HTML report with redirect chain visualisation
-- Custom header injection and cookie support
 - Redirect loop and excessive chain detection
 - Landing page phishing heuristics
-- `--silent`, `--summary` and `--only-risky` output modes
+- Output modes: default, `--silent`, `--summary`, and `--only-risky`
 - Colourised terminal output aware of hop types
-- Rate limited parallel scanning (default 10 threads)
+- Rate-limited parallel scanning (default 10 threads)
 - JSONL output format for downstream processing
 
 ## Quick start
@@ -83,7 +83,6 @@ This tool is intended for educational and authorised security testing only. Use 
 
 ## ☕ Support the Project
 
-RedirectHunter is a free and open-source tool developed with passion for the security community.  
-If you find it helpful or use it in your work, consider supporting its development ❤️
+RedirectHunter is a free and open-source tool developed with passion for the security community. If you find it helpful or use it in your work, consider supporting its development ❤️
 
 [![Buy Me a Coffee](https://img.shields.io/badge/☕-Buy%20Me%20a%20Coffee-yellow?style=for-the-badge)](https://buymeacoffee.com/iamselimozcan)
