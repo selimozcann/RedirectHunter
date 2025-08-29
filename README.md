@@ -27,6 +27,15 @@ go run ./cmd/redirecthunter \
   -w words.txt -t 20 -rl 5 \
   -o out.jsonl -html report.html
 ```
+Advanced Fuzz parameter
+```bash
+go run ./cmd/redirecthunter -u 'https://host/redirect-to?url=FUZZ'  
+ -w words.txt   -t 20   -rl 5   -timeout 20s   -retries 3   -max-chain 15  
+  -js-scan   -H 'User-Agent: RedirectHunter/1.0'   -H 'X-Demo: value'   
+  -cookie 'session=abc123' -insecure -summary  -plugins final-ssrf   
+  -o out.jsonl   -html report.html
+```
+
 
 ## Flags
 | Flag | Description |
