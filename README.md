@@ -85,8 +85,18 @@ go test ./...
 
 RedirectHunter targets Go 1.24.4 and relies only on the standard library.
 
-## Legal Disclaimer
-This tool is intended for educational and authorised security testing only. Use it strictly within legal boundaries and only on systems you have explicit permission to test.
+## ⚠️ Legal Disclaimer
+
+This tool is intended for **educational purposes** and **authorized security testing** only.
+
+By using this tool, you agree to the following:
+
+- ✅ You have **explicit written permission** to test any target system.
+- ❌ You will **not use** this software for any **unauthorized access**, scanning, or disruption of services.
+- 🚫 Usage against government, financial, or healthcare infrastructure **without authorization is strictly prohibited**.
+- 🧑‍⚖️ The developer **disclaims all liability** for misuse or damage caused by unauthorized use.
+
+If you do not agree with these terms, **do not use this software.**
 
 ---
 
