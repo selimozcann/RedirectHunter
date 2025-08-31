@@ -99,9 +99,3 @@ By using this tool, you agree to the following:
 If you do not agree with these terms, **do not use this software.**
 
 ---
-
-## ☕ Support the Project
-
-RedirectHunter is a free and open-source tool developed with passion for the security community. If you find it helpful or use it in your work, consider supporting its development ❤️
-
-[![Buy Me a Coffee](https://img.shields.io/badge/☕-Buy%20Me%20a%20Coffee-yellow?style=for-the-badge)](https://buymeacoffee.com/iamselimozcan)
