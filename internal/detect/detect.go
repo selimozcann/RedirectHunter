@@ -58,9 +58,11 @@ func TokenLeakage(u *url.URL, hop int) *model.Finding {
 func PhishingIndicators(body []byte, hop int) *model.Finding {
 	lower := bytes.ToLower(body)
 	if bytes.Contains(lower, []byte("<form")) && bytes.Contains(lower, []byte("password")) {
-		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "medium", AtHop: hop, Detail: "form with password field"}
+		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "high", AtHop: hop, Detail: "form with password field"}
+
 	}
-	if bytes.Contains(lower, []byte("document.forms")) || bytes.Contains(lower, []byte("eval(")) {
+	isLowSeverity := bytes.Contains(lower, []byte("document.forms")) || bytes.Contains(lower, []byte("eval(")) || bytes.Contains(lower, []byte("username"))
+	if isLowSeverity {
 		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "low", AtHop: hop, Detail: "suspicious javascript"}
 	}
 	return nil
