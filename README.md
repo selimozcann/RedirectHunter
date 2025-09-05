@@ -54,7 +54,7 @@ go run ./cmd/postfuzz/main.go \
   --content-type application/json \
   -v
 ```
-
+```bash
 Supports
 
 -Custom HTTP methods (-X POST, -X PUT)
@@ -84,9 +84,9 @@ Supports
 -summary       Show one-line summary per target
 -only-risky    Only output results with findings
 -plugins       Plugins to enable (default: final-ssrf)
+```
 
-
-
+```bash
 {
   "target": "https://host.com",
   "chain": [
@@ -99,11 +99,13 @@ Supports
   "started_at": "2024-01-01T00:00:00Z",
   "duration_ms": 42
 }
+```
 
+```bash
 go vet ./...
 golangci-lint run ./...
 go test ./...
-
+```
 
 - You have explicit written permission to test any target system.
 - You will not use this software for any unauthorized access, scanning, or disruption of services.
