@@ -101,7 +101,7 @@ Instance output.jsonl
   "duration_ms": 42
 }
 ```
-
+## Legal Disclaimer
 - You have explicit written permission to test any target system.
 - You will not use this software for any unauthorized access, scanning, or disruption of services.
 - Usage against government, financial, or healthcare infrastructure without authorization is strictly prohibited.
