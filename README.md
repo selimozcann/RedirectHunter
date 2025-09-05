@@ -86,6 +86,7 @@ Supports
 -plugins       Plugins to enable (default: final-ssrf)
 ```
 
+Instance output.jsonl
 ```bash
 {
   "target": "https://host.com",
@@ -99,12 +100,6 @@ Supports
   "started_at": "2024-01-01T00:00:00Z",
   "duration_ms": 42
 }
-```
-
-```bash
-go vet ./...
-golangci-lint run ./...
-go test ./...
 ```
 
 - You have explicit written permission to test any target system.
