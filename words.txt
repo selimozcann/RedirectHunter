@@ -46,9 +46,9 @@ https:////example.com
 /%5c/example.com
 /%2e%2e//example.com
 ///%252f%252fexample.com
-https://example.com%09@evil.com
-https://example.com%00@evil.com
+https://example.com%09@example.com
+https://example.com%00@example.com
 https://good.com%2eexample.com
-https://example.com?.evil.com
-https://example.com#@evil.com
-https://example.com/%23@evil.com
+https://example.com?.example.com
+https://example.com#@example.com
+https://example.com/%23@example.com
