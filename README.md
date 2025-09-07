@@ -28,7 +28,7 @@ Fuzz a redirect parameter and generate reports
 
 ```bash
 go run ./cmd/redirecthunter \
-  -u 'https://host/redirect?to=FUZZ' \
+  -u 'https://host/redirect-to?url=FUZZ' \
   -w wordlist.txt -t 20 -rl 5 \
   -o out.jsonl -html report.html
 ```
@@ -47,24 +47,31 @@ go run ./cmd/redirecthunter \
 POST body fuzzing (postfuzz mode)
 ```bash
 go run ./cmd/postfuzz/main.go \
-  -u https://api.target.com/endpoint \
+  -u https://api.host.com/endpoint \
   -X POST \
   --body '{"url": "FUZZ"}' \
   --payloads payloads/ssrf.txt \
   --content-type application/json \
   -v
 ```
+
 ```bash
-Supports
+RedirectHunter (GET FUZZ)
 
--Custom HTTP methods (-X POST, -X PUT)
+Supports:
 
--JSON, form-data, XML bodies with FUZZ placeholder
+URL-based fuzzing via FUZZ keyword
 
--Cookie and proxy support
+Cookie and proxy support
 
--Verbose logging for request/response visibility
+Verbose logging for request/response visibility
 
+Multithreaded scanning
+
+Custom headers via -H flag
+
+
+Supported Flags
 
 -u             Target URL (supports FUZZ)
 -w             Wordlist file (used when FUZZ is in URL)
@@ -85,6 +92,33 @@ Supports
 -only-risky    Only output results with findings
 -plugins       Plugins to enable (default: final-ssrf)
 ```
+
+```bash
+PostFuzz (POST / PUT Body FUZZ)
+
+Supports:
+
+Custom HTTP methods (-X POST, -X PUT)
+
+JSON, form-data, or XML body fuzzing with FUZZ placeholder
+
+Wordlist-based payload injection into request bodies
+
+Custom Content-Type header
+
+Verbose logging
+
+Supported Flags
+
+-u             Target URL
+-X             HTTP method (e.g., POST, PUT)
+-body          Request body template (use 'FUZZ' as placeholder)
+-payloads      Wordlist file used to replace FUZZ
+-content-type  Content-Type header (default: application/json)
+-v             Verbose mode for debug output
+
+```
+
 
 Instance output.jsonl
 ```bash

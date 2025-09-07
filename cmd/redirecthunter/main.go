@@ -2,32 +2,61 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
 func main() {
 	var (
 		urlStr      string
-		method      string
-		bodyTmpl    string
 		payloadPath string
-		contentType string
+		cookie      string
+		headers     headerList
+		proxyStr    string
+		timeout     time.Duration
+		retries     int
+		threads     int
+		rateLimit   int
+		maxChain    int
+		jsScan      bool
+		insecure    bool
 		verbose     bool
+		silent      bool
+		summary     bool
+		onlyRisky   bool
+		plugins     string
+		outputJSONL string
+		outputHTML  string
 	)
 
-	// CLI flags
-	flag.StringVar(&urlStr, "u", "", "Target URL (required)")
-	flag.StringVar(&method, "X", "GET", "HTTP method (GET, POST, PUT, etc.)")
-	flag.StringVar(&bodyTmpl, "body", "", "Request body template. Use 'FUZZ' as placeholder")
-	flag.StringVar(&payloadPath, "payloads", "", "Path to payload wordlist file")
-	flag.StringVar(&contentType, "content-type", "application/json", "Content-Type header")
+	flag.StringVar(&urlStr, "u", "", "Target URL (supports FUZZ)")
+	flag.StringVar(&payloadPath, "w", "", "Wordlist file (used when FUZZ is in URL)")
+	flag.StringVar(&cookie, "cookie", "", "Cookie header")
+	flag.Var(&headers, "H", "Extra HTTP header (repeatable)")
+	flag.StringVar(&proxyStr, "proxy", "", "HTTP(S) proxy URL")
+	flag.DurationVar(&timeout, "timeout", 8*time.Second, "Per-target timeout")
+	flag.IntVar(&retries, "retries", 1, "Retry count")
+	flag.IntVar(&threads, "t", 10, "Threads")
+	flag.IntVar(&rateLimit, "rl", 0, "Global rate limit (requests per second)")
+	flag.IntVar(&maxChain, "max-chain", 15, "Max redirect hops including JS/meta")
+	flag.BoolVar(&jsScan, "js-scan", true, "Enable JS/meta redirect detection")
+	flag.BoolVar(&insecure, "insecure", false, "Skip TLS verification")
 	flag.BoolVar(&verbose, "v", false, "Enable verbose output")
+	flag.BoolVar(&silent, "silent", false, "Suppress chain output")
+	flag.BoolVar(&summary, "summary", false, "Show one-line summary per target")
+	flag.BoolVar(&onlyRisky, "only-risky", false, "Only output results with findings")
+	flag.StringVar(&plugins, "plugins", "final-ssrf", "Plugins to enable")
+	flag.StringVar(&outputJSONL, "o", "", "JSONL output file")
+	flag.StringVar(&outputHTML, "html", "", "HTML report output file")
+
 	flag.Parse()
 
 	if urlStr == "" {
@@ -35,78 +64,98 @@ func main() {
 		os.Exit(1)
 	}
 
-	method = strings.ToUpper(method)
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	// POST/PUT with template body and optional fuzzing
-	if (method == "POST" || method == "PUT") && bodyTmpl != "" {
-		if strings.Contains(bodyTmpl, "FUZZ") && payloadPath != "" {
-			fuzzWithPayloads(client, urlStr, method, bodyTmpl, payloadPath, contentType, verbose)
-		} else {
-			sendRequest(client, urlStr, method, bodyTmpl, contentType, "", verbose)
+	transport := &http.Transport{}
+	if proxyStr != "" {
+		proxyURL, err := url.Parse(proxyStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[-] Invalid proxy: %v\n", err)
+			os.Exit(1)
 		}
+		transport.Proxy = http.ProxyURL(proxyURL)
+	}
+	if insecure {
+		transport.TLSClientConfig = insecureTLS()
+	}
+	client := &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+	}
+
+	if strings.Contains(urlStr, "FUZZ") && payloadPath != "" {
+		runParallelFuzzing(client, urlStr, payloadPath, cookie, headers, threads, verbose)
 		return
 	}
 
-	// GET or other methods without body
-	req, err := http.NewRequest(method, urlStr, nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[-] Request build error: %v\n", err)
-		return
-	}
-
-	if method == "POST" || method == "PUT" {
-		req.Header.Set("Content-Type", contentType)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[-] Request error: %v\n", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	n, _ := io.Copy(io.Discard, resp.Body)
-	fmt.Printf("[*] Status: %d | Response Length: %d\n", resp.StatusCode, n)
+	sendRequest(client, urlStr, cookie, headers, "", verbose)
 }
 
-// fuzzWithPayloads injects each payload into the body and sends requests
-func fuzzWithPayloads(client *http.Client, urlStr, method, bodyTmpl, payloadPath, contentType string, verbose bool) {
-	file, err := os.Open(payloadPath)
+type headerList []string
+
+func (h *headerList) String() string         { return fmt.Sprint(*h) }
+func (h *headerList) Set(value string) error { *h = append(*h, value); return nil }
+
+func insecureTLS() *tls.Config {
+	return &tls.Config{InsecureSkipVerify: true} // #nosec G402
+}
+
+func runParallelFuzzing(client *http.Client, urlStr, wordlistPath, cookie string, headers headerList, threads int, verbose bool) {
+	payloads := loadWordlist(wordlistPath)
+	var wg sync.WaitGroup
+	ch := make(chan string, threads)
+
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for payload := range ch {
+				urlWithPayload := strings.Replace(urlStr, "FUZZ", payload, 1)
+				sendRequest(client, urlWithPayload, cookie, headers, payload, verbose)
+			}
+		}()
+	}
+
+	for _, p := range payloads {
+		ch <- p
+	}
+	close(ch)
+	wg.Wait()
+}
+
+func loadWordlist(path string) []string {
+	file, err := os.Open(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[-] Failed to open payloads file: %v\n", err)
+		fmt.Fprintf(os.Stderr, "[-] Failed to open wordlist: %v\n", err)
 		os.Exit(1)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	var lines []string
 	for scanner.Scan() {
-		payload := scanner.Text()
-		body := strings.Replace(bodyTmpl, "FUZZ", payload, 1)
-		sendRequest(client, urlStr, method, body, contentType, payload, verbose)
+		lines = append(lines, scanner.Text())
 	}
-
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "[-] Error reading payloads file: %v\n", err)
-	}
+	return lines
 }
 
-// sendRequest builds and sends a single request
-func sendRequest(client *http.Client, urlStr, method, body, contentType, payload string, verbose bool) {
-	req, err := http.NewRequest(method, urlStr, strings.NewReader(body))
+func sendRequest(client *http.Client, urlStr, cookie string, headers headerList, payload string, verbose bool) {
+	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[-] Request build error for payload %q: %v\n", payload, err)
 		return
 	}
 
-	if method == "POST" || method == "PUT" {
-		req.Header.Set("Content-Type", contentType)
+	if cookie != "" {
+		req.Header.Set("Cookie", cookie)
+	}
+	for _, h := range headers {
+		parts := strings.SplitN(h, ":", 2)
+		if len(parts) == 2 {
+			req.Header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
 	}
 
 	if verbose {
-		fmt.Printf("[>] Payload: %q\n[>] Body:\n%s\n", payload, body)
+		fmt.Printf("[>] Payload: %q\n[>] URL: %s\n", payload, urlStr)
 	}
 
 	resp, err := client.Do(req)
