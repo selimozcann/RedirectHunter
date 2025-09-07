@@ -23,7 +23,7 @@ func main() {
 
 	// CLI flags
 	flag.StringVar(&urlStr, "u", "", "target URL (required)")
-	flag.StringVar(&method, "X", "GET", "HTTP method (GET, POST, PUT, etc.)")
+	flag.StringVar(&method, "X", "POST", "HTTP method (POST, PUT)")
 	flag.StringVar(&bodyTmpl, "body", "", "POST body template. Use 'FUZZ' as placeholder")
 	flag.StringVar(&payloads, "payloads", "", "payload wordlist file")
 	flag.StringVar(&contentType, "content-type", "application/json", "Content-Type header")
