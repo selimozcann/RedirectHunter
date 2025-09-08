@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/selimozcann/RedirectHunter/internal/banner"
 )
 
 func main() {
@@ -59,6 +61,7 @@ func main() {
 
 	flag.Parse()
 
+	banner.PrintBanner()
 	if urlStr == "" {
 		fmt.Fprintln(os.Stderr, "[-] Error: -u (URL) is required")
 		os.Exit(1)

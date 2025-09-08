@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/selimozcann/RedirectHunter/internal/banner"
 )
 
 func main() {
@@ -29,7 +31,7 @@ func main() {
 	flag.StringVar(&contentType, "content-type", "application/json", "Content-Type header")
 	flag.BoolVar(&verbose, "v", false, "Enable verbose output")
 	flag.Parse()
-
+	banner.PrintBanner()
 	if urlStr == "" {
 		fmt.Fprintln(os.Stderr, "-u is required")
 		os.Exit(1)
