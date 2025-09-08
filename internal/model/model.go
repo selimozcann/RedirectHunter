@@ -12,6 +12,7 @@ type Hop struct {
 	Reason string `json:"reason,omitempty"`
 	TimeMs int64  `json:"time_ms"`
 	Final  bool   `json:"final"`
+	Size   int64  `json:"size,omitempty"`
 }
 
 // Finding represents a detection within a redirect chain.

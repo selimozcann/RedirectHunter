@@ -1,20 +1,21 @@
 # RedirectHunter
 
-RedirectHunter is a security-focused command-line tool that discovers and traces full redirect chains. It follows server-side HTTP 3xx, HTML meta refreshes, and JavaScript redirects, then scores any risky behaviour such as open redirects, token leakage, SSRF, or HTTPS downgrades.
+RedirectHunter is a security-focused command-line tool that discovers and traces full redirect chains. It follows server-side HTTP 3xx, HTML meta refreshes, and JavaScript redirects, then scores risky behaviour such as open redirects, token leakage, SSRF, or HTTPS downgrades.
 
 ## Features
 
 - Severity scoring for findings (low/medium/high)
 - Plugin system with a built-in final URL SSRF detector
-- New: `postfuzz` mode for POST/PUT SSRF & Open Redirect fuzzing via body templates
-- Configurable HTTP client with custom headers, cookies, and retry logic
-- HTML report with redirect chain visualisation
+- postfuzz mode for POST/PUT SSRF & Open Redirect fuzzing via body templates
+- Configurable HTTP client with custom headers, cookies, proxies, retries
+- HTML report with redirect chain visualization
+- JSONL output format for downstream processing
+- Response size (size) and duration (duration_ms) tracking
 - Redirect loop and excessive chain detection
 - Landing page phishing heuristics
-- Output modes: default, `--silent`, `--summary`, and `--only-risky`
+- Output modes: default, --silent, --summary, and --only-risky
 - Colourised terminal output aware of hop types
 - Rate-limited parallel scanning (default 10 threads)
-- JSONL output format for downstream processing
 
 ## Quick Start
 
@@ -33,8 +34,7 @@ go run ./cmd/redirecthunter \
   -o out.jsonl -html report.html
 ```
 
-Advanced redirect fuzzing with full options
-
+Advanced redirect fuzzing
 ```bash
 go run ./cmd/redirecthunter \
   -u 'https://host/redirect-to?url=FUZZ' \
@@ -55,85 +55,77 @@ go run ./cmd/postfuzz/main.go \
   -v
 ```
 
+
 ```bash
 RedirectHunter (GET FUZZ)
-
-Supports:
-
-URL-based fuzzing via FUZZ keyword
-
-Cookie and proxy support
-
-Verbose logging for request/response visibility
-
-Multithreaded scanning
-
-Custom headers via -H flag
-
-
-Supported Flags
-
--u             Target URL (supports FUZZ)
--w             Wordlist file (used when FUZZ is in URL)
--t             Threads (default: 10)
--rl            Global rate limit (requests per second)
--timeout       Per-target timeout (default: 8s)
--retries       Retry count (default: 1)
--max-chain     Max redirect hops including JS/meta (default: 15)
--js-scan       Enable JS/meta redirect detection (default: true)
--o             JSONL output file
--html          HTML report output file
--H             Extra HTTP header (repeatable)
--cookie        Cookie header
--proxy         HTTP(S) proxy URL
--insecure      Skip TLS verification
--silent        Suppress chain output
--summary       Show one-line summary per target
--only-risky    Only output results with findings
--plugins       Plugins to enable (default: final-ssrf)
+-u Target URL (supports FUZZ)
+-w Wordlist file (used when FUZZ is in URL)
+-t Threads (default: 10)
+-rl Global rate limit (requests per second)
+-timeout Per-target timeout (default: 8s)
+-retries Retry count (default: 1)
+-max-chain Max redirect hops including JS/meta (default: 15)
+-js-scan Enable JS/meta redirect detection (default: true)
+-o JSONL output file
+-html HTML report output file
+-H Extra HTTP header (repeatable)
+-cookie Cookie header
+-proxy HTTP(S) proxy URL
+-insecure Skip TLS verification
+-silent Suppress chain output
+-summary Show one-line summary per target
+-only-risky Only output results with findings
+-plugins Plugins to enable (default: final-ssrf)
 ```
 
 ```bash
 PostFuzz (POST / PUT Body FUZZ)
-
-Supports:
-
-Custom HTTP methods (-X POST, -X PUT)
-
-JSON, form-data, or XML body fuzzing with FUZZ placeholder
-
-Wordlist-based payload injection into request bodies
-
-Custom Content-Type header
-
-Verbose logging
-
-Supported Flags
-
--u             Target URL
--X             HTTP method (e.g., POST, PUT)
--body          Request body template (use 'FUZZ' as placeholder)
--payloads      Wordlist file used to replace FUZZ
--content-type  Content-Type header (default: application/json)
--v             Verbose mode for debug output
-
+-u Target URL
+-X HTTP method (POST, PUT)
+--body Request body template (use FUZZ as placeholder)
+--payloads Wordlist file used to replace FUZZ
+--content-type Content-Type header (default: application/json)
+-v Verbose mode
 ```
-
 
 Instance output.jsonl
 ```bash
 {
   "target": "https://host.com",
   "chain": [
-    {"index":0,"url":"https://host.com","status":302,"via":"http-location"},
-    {"index":1,"url":"https://target.com","status":200,"via":"http-location","final":true}
+    {
+      "index": 0,
+      "url": "https://host.com",
+      "method": "GET",
+      "status": 302,
+      "via": "http-location",
+      "time_ms": 120,
+      "final": false,
+      "size": 420
+    },
+    {
+      "index": 1,
+      "url": "https://target.com",
+      "method": "GET",
+      "status": 200,
+      "via": "http-location",
+      "time_ms": 700,
+      "final": true,
+      "size": 648
+    }
   ],
   "findings": [
-    {"type":"HTTPS_DOWNGRADE","at_hop":1,"severity":"medium","detail":"https:// -> http://"}
+    {
+      "type": "HTTPS_DOWNGRADE",
+      "at_hop": 1,
+      "severity": "medium",
+      "detail": "https:// -> http://"
+    }
   ],
-  "started_at": "2024-01-01T00:00:00Z",
-  "duration_ms": 42
+  "started_at": "2025-09-08T19:15:22Z",
+  "duration_ms": 832
 }
+
 ```
 ## Legal Disclaimer
 - You have explicit written permission to test any target system.
