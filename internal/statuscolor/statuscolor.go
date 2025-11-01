@@ -11,21 +11,25 @@ import (
 const (
 	colorGreen = "\033[32m"
 	colorRed   = "\033[31m"
-	colorBlue  = "\033[34m"
 	colorReset = "\033[0m"
 )
 
 func colorFor(status int) string {
-	switch {
-	case status >= 200 && status < 300:
+	if status == http.StatusFound {
 		return colorGreen
-	case status >= 300 && status < 400:
-		return colorBlue
-	case status >= 400 && status < 500:
-		return colorRed
-	default:
+	}
+	if status == 0 {
 		return colorReset
 	}
+	return colorRed
+}
+
+// Sprint returns a colorized status code string (302 -> green, others red).
+func Sprint(status int) string {
+	if status == 0 {
+		return "0"
+	}
+	return fmt.Sprintf("%s%d%s", colorFor(status), status, colorReset)
 }
 
 // PrintChain fetches the target URL and follows up to 10 redirects,
@@ -39,7 +43,7 @@ func PrintChain(target string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%s %s%d%s\n", target, colorFor(resp.StatusCode), resp.StatusCode, colorReset)
+		fmt.Printf("%s %s\n", target, Sprint(resp.StatusCode))
 		if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 			loc := resp.Header.Get("Location")
 			if loc == "" {
@@ -60,6 +64,6 @@ func PrintChain(target string) error {
 // PrintResult prints a pre-fetched redirect chain with color-coded statuses.
 func PrintResult(r model.Result) {
 	for _, h := range r.Chain {
-		fmt.Printf("[%d] %s %s%d%s (%s) via %s\n", h.Index, h.URL, colorFor(h.Status), h.Status, colorReset, h.Method, h.Via)
+		fmt.Printf("[%d] %s %s (%s) via %s\n", h.Index, h.URL, Sprint(h.Status), h.Method, h.Via)
 	}
 }
