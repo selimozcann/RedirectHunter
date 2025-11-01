@@ -5,55 +5,65 @@ import (
 	"testing"
 
 	"github.com/selimozcann/RedirectHunter/internal/model"
+	"github.com/selimozcann/RedirectHunter/internal/output"
 )
 
-func TestClassifyChain(t *testing.T) {
+func TestDetermineType(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
-		status   int
-		chain    []model.Hop
-		hasError bool
-		want     resultKind
+		name string
+		res  model.Result
+		want output.ResultType
 	}{
 		{
-			name:   "redirectWithOkFinal",
-			status: http.StatusOK,
-			chain: []model.Hop{
-				{Status: http.StatusFound},
-				{Status: http.StatusOK},
+			name: "crossDomainRedirect",
+			res: model.Result{
+				Target: "https://a.example.com",
+				Chain: []model.Hop{
+					{Status: http.StatusFound, URL: "https://a.example.com/start"},
+					{Status: http.StatusOK, URL: "https://other.com/home"},
+				},
 			},
-			want: resultKindRedirect,
+			want: output.ResultTypeRedirect,
 		},
 		{
-			name:   "redirectWithError",
-			status: 0,
-			chain: []model.Hop{
-				{Status: http.StatusFound},
+			name: "selfDomainRedirect",
+			res: model.Result{
+				Target: "https://www.example.com",
+				Chain: []model.Hop{
+					{Status: http.StatusFound, URL: "https://www.example.com/go"},
+					{Status: http.StatusOK, URL: "https://example.com/welcome"},
+				},
 			},
-			hasError: true,
-			want:     resultKindRedirect,
+			want: output.ResultTypeUnredirect,
 		},
 		{
-			name:   "directOk",
-			status: http.StatusOK,
-			chain: []model.Hop{
-				{Status: http.StatusOK},
+			name: "directOk",
+			res: model.Result{
+				Target: "https://example.com",
+				Chain: []model.Hop{
+					{Status: http.StatusOK, URL: "https://example.com"},
+				},
 			},
-			want: resultKindOK,
+			want: output.ResultTypeOK,
 		},
 		{
-			name:   "errorStatus",
-			status: http.StatusNotFound,
-			want:   resultKindError,
+			name: "errorStatus",
+			res: model.Result{
+				Target: "https://example.com/missing",
+				Chain: []model.Hop{
+					{Status: http.StatusNotFound, URL: "https://example.com/missing"},
+				},
+			},
+			want: output.ResultTypeError,
 		},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			if got := classifyChain(tt.status, tt.chain, tt.hasError); got != tt.want {
-				t.Fatalf("classifyChain() = %v, want %v", got, tt.want)
+			if got := output.DetermineType(tt.res); got != tt.want {
+				t.Fatalf("DetermineType() = %v, want %v", got, tt.want)
 			}
 		})
 	}

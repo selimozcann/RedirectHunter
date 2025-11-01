@@ -10,11 +10,16 @@ import (
 
 const (
 	colorGreen  = "\033[32m"
+	colorBlue   = "\033[34m"
 	colorYellow = "\033[33m"
 	colorRed    = "\033[31m"
 	colorGray   = "\033[90m"
 	colorReset  = "\033[0m"
 )
+
+func wrap(color, text string) string {
+	return fmt.Sprintf("%s%s%s", color, text, colorReset)
+}
 
 func colorFor(status int) string {
 	switch status {
@@ -45,12 +50,17 @@ func Sprint(status int) string {
 // WrapByStatus wraps the provided text with the color that corresponds to the
 // supplied status code.
 func WrapByStatus(text string, status int) string {
-	return fmt.Sprintf("%s%s%s", colorFor(status), text, colorReset)
+	return wrap(colorFor(status), text)
 }
 
 // Gray wraps the provided text with a gray ANSI color.
 func Gray(text string) string {
-	return fmt.Sprintf("%s%s%s", colorGray, text, colorReset)
+	return wrap(colorGray, text)
+}
+
+// Blue wraps the provided text with a blue ANSI color.
+func Blue(text string) string {
+	return wrap(colorBlue, text)
 }
 
 // PrintChain fetches the target URL and follows up to 10 redirects,

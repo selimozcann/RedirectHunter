@@ -394,11 +394,12 @@ func renderTinySummaryHTML(w io.Writer, generatedAt time.Time, params map[string
 	fmt.Fprintln(buf, ".url{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;word-break:break-all;}")
 	fmt.Fprintln(buf, ".badge{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;}")
 	fmt.Fprintln(buf, ".badge.good{background:#dcfce7;color:#166534;}")
+	fmt.Fprintln(buf, ".badge.info{background:#dbeafe;color:#1d4ed8;}")
 	fmt.Fprintln(buf, ".badge.warn{background:#fef3c7;color:#92400e;}")
 	fmt.Fprintln(buf, ".badge.bad{background:#fee2e2;color:#b91c1c;}")
 	fmt.Fprintln(buf, ".badge.neutral{background:#e2e8f0;color:#1f2937;}")
 	fmt.Fprintln(buf, ".row-error{background:rgba(248,113,113,0.08);}")
-	fmt.Fprintln(buf, "@media (prefers-color-scheme: dark){body{background:#0f172a;color:#e2e8f0;} .overview li{background:#111c3a;border-color:#1e293b;color:#e2e8f0;} .params dt{color:#e2e8f0;} .params dd{color:#cbd5f5;} .results{background:#0f172a;border-color:#1e293b;} .results th{background:#111c3a;color:#cbd5f5;} .results td{border-color:#1e293b;} .row-error{background:rgba(248,113,113,0.18);} }")
+	fmt.Fprintln(buf, "@media (prefers-color-scheme: dark){body{background:#0f172a;color:#e2e8f0;} .overview li{background:#111c3a;border-color:#1e293b;color:#e2e8f0;} .params dt{color:#e2e8f0;} .params dd{color:#cbd5f5;} .results{background:#0f172a;border-color:#1e293b;} .results th{background:#111c3a;color:#cbd5f5;} .results td{border-color:#1e293b;} .badge.info{background:#1e3a8a;color:#bfdbfe;} .row-error{background:rgba(248,113,113,0.18);} }")
 	fmt.Fprintln(buf, "</style>")
 	fmt.Fprintln(buf, "</head>")
 	fmt.Fprintln(buf, "<body>")
@@ -445,7 +446,7 @@ func renderTinySummaryHTML(w io.Writer, generatedAt time.Time, params map[string
 		if row.View.FinalURL != "" {
 			finalURL = html.EscapeString(row.View.FinalURL)
 		}
-		statusClass, statusLabel := statusBadge(row.View.StatusCode, row.View.Chain, row.Error != "")
+		statusClass, statusLabel := statusBadge(row.View, row.Error != "")
 		errorText := "—"
 		if row.Error != "" {
 			errorText = html.EscapeString(row.Error)
@@ -473,23 +474,25 @@ func renderTinySummaryHTML(w io.Writer, generatedAt time.Time, params map[string
 	return buf.Flush()
 }
 
-func statusBadge(status int, chain []model.Hop, hasError bool) (class string, label string) {
-	switch classifyChain(status, chain, hasError) {
-	case resultKindRedirect:
-		return "good", "redirect"
-	case resultKindOK:
-		if status == 0 {
+func statusBadge(view output.ResultView, hasError bool) (class string, label string) {
+	switch view.Type {
+	case output.ResultTypeRedirect:
+		return "good", "[REDIRECT]"
+	case output.ResultTypeUnredirect:
+		return "info", "[UNREDIRECT]"
+	case output.ResultTypeOK:
+		if view.StatusCode == 0 {
 			return "neutral", "—"
 		}
-		return "warn", strconv.Itoa(status)
-	case resultKindError:
-		if status == 0 {
+		return "warn", strconv.Itoa(view.StatusCode)
+	case output.ResultTypeError:
+		if view.StatusCode == 0 {
 			if hasError {
 				return "bad", "error"
 			}
 			return "bad", "—"
 		}
-		return "bad", strconv.Itoa(status)
+		return "bad", strconv.Itoa(view.StatusCode)
 	default:
 		return "neutral", "—"
 	}
@@ -507,9 +510,10 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 	total := len(results)
 	width := len(strconv.Itoa(total))
 	var (
-		totalRedirect int
-		totalOK       int
-		totalError    int
+		totalRedirect   int
+		totalUnredirect int
+		totalOK         int
+		totalError      int
 	)
 	for i, res := range results {
 		view := views[i]
@@ -541,27 +545,23 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 				finalURL = "—"
 			}
 
-			kind := classifyChain(view.StatusCode, view.Chain, hasError)
-
-			var (
-				label    string
-				incrFunc = func() {}
-			)
-
-			switch kind {
-			case resultKindRedirect:
+			var label string
+			switch view.Type {
+			case output.ResultTypeRedirect:
 				label = statuscolor.WrapByStatus("[REDIRECT]", http.StatusFound)
-				incrFunc = func() { totalRedirect++ }
-			case resultKindOK:
+				totalRedirect++
+			case output.ResultTypeUnredirect:
+				label = statuscolor.Blue("[UNREDIRECT]")
+				totalUnredirect++
+			case output.ResultTypeOK:
 				label = statuscolor.WrapByStatus("[OK]", http.StatusOK)
-				incrFunc = func() { totalOK++ }
-			case resultKindError:
+				totalOK++
+			case output.ResultTypeError:
 				label = statuscolor.WrapByStatus("[ERROR]", http.StatusNotFound)
-				incrFunc = func() { totalError++ }
+				totalError++
 			default:
 				label = statuscolor.Gray("[UNKNOWN]")
 			}
-			incrFunc()
 
 			line := fmt.Sprintf(
 				"%s [%*d/%d] %s -> %s | Final: %s | Chain: %s | core=%2d | plugin=%2d | duration=%dms",
@@ -611,45 +611,8 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 	}
 
 	if opts.summary {
-		fmt.Printf("Summary: ✅ %d redirects | ⚠️ %d ok | ❌ %d errors\n", totalRedirect, totalOK, totalError)
+		fmt.Printf("Summary: ✅ %d redirects | 🌀 %d unredirects | ⚠️ %d ok | ❌ %d errors\n", totalRedirect, totalUnredirect, totalOK, totalError)
 	}
-}
-
-type resultKind int
-
-const (
-	resultKindUnknown resultKind = iota
-	resultKindRedirect
-	resultKindOK
-	resultKindError
-)
-
-func classifyChain(status int, chain []model.Hop, hasError bool) resultKind {
-	if hasRedirectHop(chain) {
-		return resultKindRedirect
-	}
-	if hasError {
-		return resultKindError
-	}
-	switch {
-	case status == http.StatusOK:
-		return resultKindOK
-	case status == 0:
-		return resultKindError
-	case status >= 400:
-		return resultKindError
-	default:
-		return resultKindOK
-	}
-}
-
-func hasRedirectHop(chain []model.Hop) bool {
-	for _, hop := range chain {
-		if hop.Status >= 300 && hop.Status < 400 {
-			return true
-		}
-	}
-	return false
 }
 
 func countCoreFindings(findings []model.Finding) int {
