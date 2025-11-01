@@ -394,6 +394,7 @@ func renderTinySummaryHTML(w io.Writer, generatedAt time.Time, params map[string
 	fmt.Fprintln(buf, ".url{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;word-break:break-all;}")
 	fmt.Fprintln(buf, ".badge{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;}")
 	fmt.Fprintln(buf, ".badge.good{background:#dcfce7;color:#166534;}")
+	fmt.Fprintln(buf, ".badge.warn{background:#fef3c7;color:#92400e;}")
 	fmt.Fprintln(buf, ".badge.bad{background:#fee2e2;color:#b91c1c;}")
 	fmt.Fprintln(buf, ".badge.neutral{background:#e2e8f0;color:#1f2937;}")
 	fmt.Fprintln(buf, ".row-error{background:rgba(248,113,113,0.08);}")
@@ -444,7 +445,7 @@ func renderTinySummaryHTML(w io.Writer, generatedAt time.Time, params map[string
 		if row.View.FinalURL != "" {
 			finalURL = html.EscapeString(row.View.FinalURL)
 		}
-		statusClass, statusLabel := statusBadge(row.View.StatusCode)
+		statusClass, statusLabel := statusBadge(row.View.StatusCode, row.View.Chain, row.Error != "")
 		errorText := "—"
 		if row.Error != "" {
 			errorText = html.EscapeString(row.Error)
@@ -472,14 +473,26 @@ func renderTinySummaryHTML(w io.Writer, generatedAt time.Time, params map[string
 	return buf.Flush()
 }
 
-func statusBadge(status int) (class string, label string) {
-	if status == 0 {
+func statusBadge(status int, chain []model.Hop, hasError bool) (class string, label string) {
+	switch classifyChain(status, chain, hasError) {
+	case resultKindRedirect:
+		return "good", "redirect"
+	case resultKindOK:
+		if status == 0 {
+			return "neutral", "—"
+		}
+		return "warn", strconv.Itoa(status)
+	case resultKindError:
+		if status == 0 {
+			if hasError {
+				return "bad", "error"
+			}
+			return "bad", "—"
+		}
+		return "bad", strconv.Itoa(status)
+	default:
 		return "neutral", "—"
 	}
-	if status == http.StatusFound {
-		return "good", "302"
-	}
-	return "bad", strconv.Itoa(status)
 }
 
 func ensureDir(path string) error {
@@ -528,44 +541,38 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 				finalURL = "—"
 			}
 
-			statusSegment := fmt.Sprintf("status=%s", statuscolor.Sprint(view.StatusCode))
+			kind := classifyChain(view.StatusCode, view.Chain, hasError)
 
 			var (
-				saw302      bool
-				has302To200 bool
+				label    string
+				incrFunc = func() {}
 			)
-			for _, hop := range res.Chain {
-				if hop.Status == http.StatusFound {
-					saw302 = true
-				}
-				if saw302 && hop.Status == http.StatusOK {
-					has302To200 = true
-					break
-				}
-			}
 
-			switch {
-			case has302To200:
-				statusSegment = statuscolor.WrapByStatus("redirect", http.StatusFound)
-				totalRedirect++
-			case view.StatusCode == http.StatusOK:
-				statusSegment = statuscolor.WrapByStatus("ok", http.StatusOK)
-				totalOK++
-			case view.StatusCode == http.StatusNotFound:
-				statusSegment = statuscolor.WrapByStatus("error", http.StatusNotFound)
-				totalError++
+			switch kind {
+			case resultKindRedirect:
+				label = statuscolor.WrapByStatus("[REDIRECT]", http.StatusFound)
+				incrFunc = func() { totalRedirect++ }
+			case resultKindOK:
+				label = statuscolor.WrapByStatus("[OK]", http.StatusOK)
+				incrFunc = func() { totalOK++ }
+			case resultKindError:
+				label = statuscolor.WrapByStatus("[ERROR]", http.StatusNotFound)
+				incrFunc = func() { totalError++ }
+			default:
+				label = statuscolor.Gray("[UNKNOWN]")
 			}
+			incrFunc()
 
 			line := fmt.Sprintf(
-				"[%*d/%d] %s -> %s | chain: %s | %s | final=%s | core=%2d | plugin=%2d | duration=%dms",
+				"%s [%*d/%d] %s -> %s | Final: %s | Chain: %s | core=%2d | plugin=%2d | duration=%dms",
+				label,
 				width,
 				i+1,
 				total,
 				view.InputURL,
 				finalURL,
-				chainText,
-				statusSegment,
 				statuscolor.Sprint(view.StatusCode),
+				chainText,
 				coreCount,
 				pluginCount,
 				view.DurationMs,
@@ -606,6 +613,43 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 	if opts.summary {
 		fmt.Printf("Summary: ✅ %d redirects | ⚠️ %d ok | ❌ %d errors\n", totalRedirect, totalOK, totalError)
 	}
+}
+
+type resultKind int
+
+const (
+	resultKindUnknown resultKind = iota
+	resultKindRedirect
+	resultKindOK
+	resultKindError
+)
+
+func classifyChain(status int, chain []model.Hop, hasError bool) resultKind {
+	if hasRedirectHop(chain) {
+		return resultKindRedirect
+	}
+	if hasError {
+		return resultKindError
+	}
+	switch {
+	case status == http.StatusOK:
+		return resultKindOK
+	case status == 0:
+		return resultKindError
+	case status >= 400:
+		return resultKindError
+	default:
+		return resultKindOK
+	}
+}
+
+func hasRedirectHop(chain []model.Hop) bool {
+	for _, hop := range chain {
+		if hop.Status >= 300 && hop.Status < 400 {
+			return true
+		}
+	}
+	return false
 }
 
 func countCoreFindings(findings []model.Finding) int {
