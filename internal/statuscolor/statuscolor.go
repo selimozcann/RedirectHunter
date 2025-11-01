@@ -9,27 +9,42 @@ import (
 )
 
 const (
-	colorGreen = "\033[32m"
-	colorRed   = "\033[31m"
-	colorReset = "\033[0m"
+	colorGreen  = "\033[32m"
+	colorYellow = "\033[33m"
+	colorRed    = "\033[31m"
+	colorGray   = "\033[90m"
+	colorReset  = "\033[0m"
 )
 
 func colorFor(status int) string {
-	if status == http.StatusFound {
+	switch status {
+	case http.StatusFound:
 		return colorGreen
-	}
-	if status == 0 {
+	case http.StatusOK:
+		return colorYellow
+	case http.StatusNotFound:
+		return colorRed
+	case 0:
 		return colorReset
+	default:
+		if status >= 400 {
+			return colorRed
+		}
+		return colorYellow
 	}
-	return colorRed
 }
 
 // Sprint returns a colorized status code string (302 -> green, others red).
 func Sprint(status int) string {
 	if status == 0 {
-		return "0"
+		return fmt.Sprintf("%s—%s", colorGray, colorReset)
 	}
 	return fmt.Sprintf("%s%d%s", colorFor(status), status, colorReset)
+}
+
+// Gray wraps the provided text with a gray ANSI color.
+func Gray(text string) string {
+	return fmt.Sprintf("%s%s%s", colorGray, text, colorReset)
 }
 
 // PrintChain fetches the target URL and follows up to 10 redirects,
