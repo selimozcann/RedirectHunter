@@ -2,269 +2,74 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RedirectHunter Report</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RedirectHunter Summary</title>
 <style>
-:root { color-scheme: light dark; }
-body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; background:#fafafa; color:#111; }
-header { margin-bottom: 24px; }
-h1 { font-size: 26px; margin: 0 0 8px; }
-.section { border:1px solid #e5e7eb; border-radius:16px; padding:16px 20px; margin-bottom:18px; background:#fff; box-shadow:0 1px 2px rgba(15,23,42,0.08); }
-h2 { font-size:20px; margin:0 0 12px; }
-h3 { font-size:16px; margin:12px 0 6px; }
-dt { font-weight:600; }
-dd { margin:0 0 8px 0; }
-.summary-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); }
-.summary-card { display:block; padding:12px; border-radius:12px; border:1px solid #cbd5f5; text-decoration:none; color:inherit; position:relative; transition:box-shadow .2s ease; background:linear-gradient(180deg,#eef2ff,#fff); }
-.summary-card:hover { box-shadow:0 8px 16px rgba(79,70,229,0.2); }
-.summary-card[data-active="true"] { border-color:#4f46e5; box-shadow:0 0 0 2px rgba(79,70,229,0.4); }
-.summary-card .badge { position:absolute; top:12px; right:12px; padding:2px 10px; border-radius:999px; background:#4f46e5; color:#fff; font-size:12px; }
-.meta { color:#6b7280; font-size:12px; }
-.finding-row { border-top:1px solid #e5e7eb; padding-top:12px; margin-top:12px; }
-.finding-row:first-of-type { border-top:none; padding-top:0; margin-top:0; }
-.finding-list { list-style:disc; margin:8px 0 8px 20px; }
-.badge-inline { display:inline-block; padding:2px 8px; border-radius:999px; background:#e5e7eb; font-size:12px; margin-left:6px; }
-.table { width:100%; border-collapse:collapse; font-size:14px; }
-.table th, .table td { border-bottom:1px solid #e5e7eb; padding:6px 8px; text-align:left; }
-.table th { background:#f9fafb; }
-.chain-url { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; }
-.chain-meta { color:#6b7280; font-size:12px; }
-.footer { text-align:center; font-size:12px; color:#6b7280; margin-top:24px; }
-@media (prefers-color-scheme: dark) {
-        body { background:#0f172a; color:#e2e8f0; }
-        .section { background:#1e293b; border-color:#334155; box-shadow:none; }
-        .summary-card { background:linear-gradient(180deg,#312e81,#1e293b); border-color:#4338ca; color:#e0e7ff; }
-        .summary-card .badge { background:#a855f7; }
-        .meta { color:#94a3b8; }
-        .table th { background:#1e293b; }
-        .chain-meta { color:#94a3b8; }
-        .badge-inline { background:#475569; }
-}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:24px;background:#f9fafb;color:#0f172a;}
+h1{font-size:24px;margin:0 0 12px;}
+h2{font-size:18px;margin:24px 0 12px;}
+.meta{color:#64748b;font-size:12px;margin-top:4px;}
+.overview{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0 8px;padding:0;list-style:none;}
+.overview li{flex:1 1 180px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 16px;box-shadow:0 1px 3px rgba(15,23,42,0.08);}
+.overview strong{display:block;font-size:20px;color:#0f172a;}
+.params{margin-top:24px;}
+.params dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 16px;margin:0;padding:0;}
+.params dt{font-weight:600;color:#0f172a;}
+.params dd{margin:0;color:#475569;word-break:break-word;}
+.results{width:100%;border-collapse:collapse;margin-top:24px;font-size:14px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;}
+.results th,.results td{border-bottom:1px solid #e2e8f0;padding:10px 12px;text-align:left;vertical-align:top;}
+.results th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:#475569;}
+.results tr:last-child td{border-bottom:none;}
+.url{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;word-break:break-all;}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;}
+.badge.good{background:#dcfce7;color:#166534;}
+.badge.info{background:#dbeafe;color:#1d4ed8;}
+.badge.warn{background:#fef3c7;color:#92400e;}
+.badge.bad{background:#fee2e2;color:#b91c1c;}
+.badge.neutral{background:#e2e8f0;color:#1f2937;}
+.row-error{background:rgba(248,113,113,0.08);}
+@media (prefers-color-scheme: dark){body{background:#0f172a;color:#e2e8f0;} .overview li{background:#111c3a;border-color:#1e293b;color:#e2e8f0;} .params dt{color:#e2e8f0;} .params dd{color:#cbd5f5;} .results{background:#0f172a;border-color:#1e293b;} .results th{background:#111c3a;color:#cbd5f5;} .results td{border-color:#1e293b;} .badge.info{background:#1e3a8a;color:#bfdbfe;} .row-error{background:rgba(248,113,113,0.18);} }
 </style>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const cards = document.querySelectorAll('[data-filter]');
-  const rows = document.querySelectorAll('.finding-row');
-  const notice = document.getElementById('filterNotice');
-  function apply(filter) {
-    cards.forEach(c => c.dataset.active = (c.dataset.filter === filter ? 'true' : 'false'));
-    rows.forEach(row => {
-      const hasCore = Number(row.dataset.core);
-      const hasPlugin = Number(row.dataset.plugin);
-      const hasError = Number(row.dataset.error);
-      let show = true;
-      let text = 'Showing all targets.';
-      switch(filter) {
-        case 'core':
-          show = hasCore > 0;
-          text = 'Filtered to targets with core findings.';
-          break;
-        case 'plugin':
-          show = hasPlugin > 0;
-          text = 'Filtered to targets with plugin findings.';
-          break;
-        case 'errors':
-          show = hasError > 0;
-          text = 'Filtered to targets with errors only.';
-          break;
-        default:
-          show = true;
-      }
-      if (show) {
-        row.style.display = '';
-      } else {
-        row.style.display = 'none';
-      }
-      if (notice) {
-        notice.textContent = text;
-      }
-    });
-  }
-  cards.forEach(card => {
-    card.addEventListener('click', function (ev) {
-      ev.preventDefault();
-      apply(card.dataset.filter || 'all');
-      const target = card.getAttribute('href');
-      if (target) {
-        const el = document.querySelector(target);
-        if (el) {
-          el.scrollIntoView({behavior: 'smooth'});
-        }
-      }
-    });
-  });
-  apply('all');
-});
-</script>
 </head>
 <body>
 <header>
-  <h1>RedirectHunter Report</h1>
-  <p class="meta">Generated at 2024-04-01T12:05:00Z</p>
+<h1>RedirectHunter Summary</h1>
+<div class="meta">Generated 2025-11-01T18:43:21Z</div>
 </header>
-<section id="summary" class="section">
-  <h2>Summary</h2>
-  <div class="summary-grid">
-    <a class="summary-card" href="#chains" data-filter="all"><strong>Total Targets</strong><span class="badge">2</span></a>
-    <a class="summary-card" href="#findings" data-filter="core"><strong>Targets with Findings</strong><span class="badge">1</span></a>
-    <a class="summary-card" href="#plugin-findings" data-filter="plugin"><strong>Plugin Findings</strong><span class="badge">1</span></a>
-    <a class="summary-card" href="#findings" data-filter="errors"><strong>Errors</strong><span class="badge">0</span></a>
-  </div>
+<ul class="overview">
+<li><strong>2</strong><span class="meta">Total targets</span></li>
+<li><strong>0</strong><span class="meta">Targets with findings</span></li>
+<li><strong>0</strong><span class="meta">Plugin findings</span></li>
+<li><strong>0</strong><span class="meta">Errors</span></li>
+</ul>
+<section class="params">
+<h2>Run parameters</h2>
+<dl>
+<dt>cookie</dt><dd>session=abc123</dd>
+<dt>insecure</dt><dd>true</dd>
+<dt>js_scan</dt><dd>true</dd>
+<dt>max_chain</dt><dd>15</dd>
+<dt>only_risky</dt><dd>false</dd>
+<dt>output_html</dt><dd>./examples/example.report.html</dd>
+<dt>output_jsonl</dt><dd>./examples/example.out.jsonl</dd>
+<dt>plugins</dt><dd>final-ssrf</dd>
+<dt>rate_limit</dt><dd>5</dd>
+<dt>retries</dt><dd>3</dd>
+<dt>silent</dt><dd>false</dd>
+<dt>summary</dt><dd>true</dd>
+<dt>target</dt><dd>https://ptl-3d845717268b-e94e74fc552c.libcurl.me/redirect.php?uri=FUZZ</dd>
+<dt>targets_generated</dt><dd>2</dd>
+<dt>threads</dt><dd>20</dd>
+<dt>timeout</dt><dd>20s</dd>
+<dt>wordlist</dt><dd>wordlist.txt</dd>
+</dl>
 </section>
-<section id="parameters" class="section">
-  <h2>Parameters</h2>
-  <dl>
-    <dt>cookie</dt>
-    <dd><span class="chain-url">session=abc123</span></dd>
-    <dt>insecure</dt>
-    <dd><span class="chain-url">true</span></dd>
-    <dt>js_scan</dt>
-    <dd><span class="chain-url">true</span></dd>
-    <dt>max_chain</dt>
-    <dd><span class="chain-url">15</span></dd>
-    <dt>output_html</dt>
-    <dd><span class="chain-url">./examples/example.report.html</span></dd>
-    <dt>output_jsonl</dt>
-    <dd><span class="chain-url">./examples/example.out.jsonl</span></dd>
-    <dt>plugins</dt>
-    <dd><span class="chain-url">final-ssrf</span></dd>
-    <dt>rate_limit</dt>
-    <dd><span class="chain-url">5</span></dd>
-    <dt>retries</dt>
-    <dd><span class="chain-url">3</span></dd>
-    <dt>summary</dt>
-    <dd><span class="chain-url">true</span></dd>
-    <dt>target</dt>
-    <dd><span class="chain-url">https://host/redirect-to?url=FUZZ</span></dd>
-    <dt>threads</dt>
-    <dd><span class="chain-url">20</span></dd>
-    <dt>timeout</dt>
-    <dd><span class="chain-url">20s</span></dd>
-    <dt>wordlist</dt>
-    <dd><span class="chain-url">wordlist.txt</span></dd>
-  </dl>
-</section>
-<section id="findings" class="section">
-  <h2>Findings</h2>
-  <p class="meta" id="filterNotice">Showing all targets.</p>
-  
-  <div class="finding-row" data-core="2" data-plugin="1" data-error="0">
-    <h3>https://host/redirect-to?url=https://internal<span class="badge-inline">Status 200</span></h3>
-    <p class="meta">Payload: <span class="chain-url">https://internal</span></p>
-    
-    
-      <p><strong>Core Findings</strong></p>
-      <ul class="finding-list">
-        
-          <li><strong>medium</strong>: HTTPS_DOWNGRADE — https:// -&gt; http://</li>
-        
-          <li><strong>high</strong>: FINAL_SSRF — https://internal</li>
-        
-      </ul>
-    
-    
-      <p><strong>Plugin Findings</strong></p>
-      <ul class="finding-list">
-        
-          <li><strong>high</strong>: FINAL_SSRF — https://internal <span class="meta">final-ssrf</span></li>
-        
-      </ul>
-    
-    <p class="meta">Duration 142ms • Response 512 bytes • Started 2024-04-01T12:00:00Z</p>
-  </div>
-  
-  <div class="finding-row" data-core="0" data-plugin="0" data-error="0">
-    <h3>https://host/redirect-to?url=https://example.org<span class="badge-inline">Status 200</span></h3>
-    <p class="meta">Payload: <span class="chain-url">https://example.org</span></p>
-    
-    
-    
-    <p class="meta">Duration 95ms • Response 684 bytes • Started 2024-04-01T12:00:02Z</p>
-  </div>
-  
-</section>
-<section id="chains" class="section">
-  <h2>Redirect Chains</h2>
-  
-    <details open>
-      <summary>https://host/redirect-to?url=https://internal → https://internal <span class="meta">2 hops</span></summary>
-      <table class="table">
-        <thead>
-          <tr><th>#</th><th>URL</th><th>Method</th><th>Status</th><th>Via</th><th>Time (ms)</th><th>Size</th></tr>
-        </thead>
-        <tbody>
-        
-          <tr>
-            <td>0</td>
-            <td class="chain-url">https://host/redirect-to?url=https://internal</td>
-            <td>GET</td>
-            <td>302</td>
-            <td>http-location</td>
-            <td>41</td>
-            <td>180</td>
-          </tr>
-        
-          <tr>
-            <td>1</td>
-            <td class="chain-url">https://internal</td>
-            <td>GET</td>
-            <td>200</td>
-            <td>http-location</td>
-            <td>101</td>
-            <td>512</td>
-          </tr>
-        
-        </tbody>
-      </table>
-    </details>
-  
-    <details open>
-      <summary>https://host/redirect-to?url=https://example.org → https://example.org <span class="meta">2 hops</span></summary>
-      <table class="table">
-        <thead>
-          <tr><th>#</th><th>URL</th><th>Method</th><th>Status</th><th>Via</th><th>Time (ms)</th><th>Size</th></tr>
-        </thead>
-        <tbody>
-        
-          <tr>
-            <td>0</td>
-            <td class="chain-url">https://host/redirect-to?url=https://example.org</td>
-            <td>GET</td>
-            <td>302</td>
-            <td>http-location</td>
-            <td>33</td>
-            <td>150</td>
-          </tr>
-        
-          <tr>
-            <td>1</td>
-            <td class="chain-url">https://example.org</td>
-            <td>GET</td>
-            <td>200</td>
-            <td>http-location</td>
-            <td>62</td>
-            <td>684</td>
-          </tr>
-        
-        </tbody>
-      </table>
-    </details>
-  
-</section>
-<section id="plugin-findings" class="section">
-  <h2>Plugin Findings</h2>
-  
-    <ul class="finding-list">
-    
-        <li><span class="chain-url">https://host/redirect-to?url=https://internal</span> — <strong>high</strong> FINAL_SSRF (final-ssrf) — https://internal</li>
-      
-    
-    
-    </ul>
-  
-</section>
-<footer class="footer">
-  RedirectHunter report generated at 2024-04-01T12:05:00Z
-</footer>
+<table class="results">
+<thead><tr><th>#</th><th>Input</th><th>Final</th><th>Status</th><th>Core</th><th>Plugin</th><th>Duration</th><th>Error</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><div class="url">https://ptl-3d845717268b-e94e74fc552c.libcurl.me/redirect.php?uri=https://www.google.com/</div><div class="meta">payload: https://www.google.com/</div></td><td><div class="url">https://doodles.google/</div></td><td><span class="badge good">[REDIRECT]</span></td><td>0</td><td>0</td><td>1494&nbsp;ms</td><td>—</td></tr>
+<tr><td>2</td><td><div class="url">https://ptl-3d845717268b-e94e74fc552c.libcurl.me/redirect.php?uri=//example.com.</div><div class="meta">payload: //example.com.</div></td><td><div class="url">https://example.com.</div></td><td><span class="badge good">[REDIRECT]</span></td><td>0</td><td>0</td><td>920&nbsp;ms</td><td>—</td></tr>
+</tbody>
+</table>
 </body>
 </html>
