@@ -80,16 +80,17 @@ func main() {
 		transport.TLSClientConfig = insecureTLS()
 	}
 	client := &http.Client{
-		Timeout:   timeout,
-		Transport: transport,
+		Timeout:       timeout,
+		Transport:     transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 	}
 
-	if strings.Contains(urlStr, "FUZZ") && payloadPath != "" {
+	if payloadPath != "" {
 		runParallelFuzzing(client, urlStr, payloadPath, cookie, headers, threads, verbose)
 		return
 	}
 
-	sendRequest(client, urlStr, cookie, headers, "", verbose)
+	sendRequest(client, urlStr, cookie, headers, urlStr, verbose)
 }
 
 type headerList []string
@@ -111,7 +112,7 @@ func runParallelFuzzing(client *http.Client, urlStr, wordlistPath, cookie string
 		go func() {
 			defer wg.Done()
 			for payload := range ch {
-				urlWithPayload := strings.Replace(urlStr, "FUZZ", payload, 1)
+				urlWithPayload := buildURLWithPayload(urlStr, payload)
 				sendRequest(client, urlWithPayload, cookie, headers, payload, verbose)
 			}
 		}()
@@ -122,6 +123,13 @@ func runParallelFuzzing(client *http.Client, urlStr, wordlistPath, cookie string
 	}
 	close(ch)
 	wg.Wait()
+}
+
+func buildURLWithPayload(baseURL, payload string) string {
+	if strings.Contains(baseURL, "FUZZ") {
+		return strings.Replace(baseURL, "FUZZ", payload, 1)
+	}
+	return baseURL + payload
 }
 
 func loadWordlist(path string) []string {
@@ -169,5 +177,22 @@ func sendRequest(client *http.Client, urlStr, cookie string, headers headerList,
 	defer resp.Body.Close()
 
 	n, _ := io.Copy(io.Discard, resp.Body)
-	fmt.Printf("[+] Payload: %-20s | Status: %d | RespLen: %d\n", payload, resp.StatusCode, n)
+
+	indicator := "[-]"
+	if resp.StatusCode == http.StatusFound {
+		indicator = "[+]"
+	}
+
+	redirectInfo := ""
+	if location := resp.Header.Get("Location"); location != "" {
+		redirectInfo = fmt.Sprintf(" | Redirect: %s", location)
+	}
+
+	line := fmt.Sprintf("| %s Payload: %-30s | Status: %d | RespLen: %d%s", indicator, payload, resp.StatusCode, n, redirectInfo)
+
+	if resp.StatusCode == http.StatusFound {
+		fmt.Printf("\033[32m%s\033[0m\n", line)
+	} else {
+		fmt.Println(line)
+	}
 }
