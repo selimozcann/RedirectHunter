@@ -22,14 +22,17 @@ type Finding struct {
 	Severity string            `json:"severity"`
 	Detail   string            `json:"detail"`
 	Evidence map[string]string `json:"evidence,omitempty"`
+	Source   string            `json:"source,omitempty"`
 }
 
 // Result is the final output for a single scanned target.
 type Result struct {
-	Target     string    `json:"target"`
-	Chain      []Hop     `json:"chain"`
-	Findings   []Finding `json:"findings,omitempty"`
-	StartedAt  time.Time `json:"started_at"`
-	DurationMs int64     `json:"duration_ms"`
-	Error      string    `json:"error,omitempty"`
+	Target         string    `json:"target"`
+	Payload        string    `json:"payload,omitempty"`
+	Chain          []Hop     `json:"chain"`
+	Findings       []Finding `json:"findings,omitempty"`
+	PluginFindings []Finding `json:"plugin_findings,omitempty"`
+	StartedAt      time.Time `json:"started_at"`
+	DurationMs     int64     `json:"duration_ms"`
+	Error          string    `json:"error,omitempty"`
 }

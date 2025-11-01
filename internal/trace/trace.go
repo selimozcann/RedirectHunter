@@ -46,7 +46,11 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 			break
 		}
 
-		hop := model.Hop{Index: i, URL: current, Method: req.Method, Status: resp.StatusCode, Via: "http-location", TimeMs: duration}
+		size := resp.ContentLength
+		if size < 0 {
+			size = 0
+		}
+		hop := model.Hop{Index: i, URL: current, Method: req.Method, Status: resp.StatusCode, Via: "http-location", TimeMs: duration, Size: size}
 		u := resp.Request.URL
 
 		if f := detect.SSRF(u, i); f != nil {
@@ -86,6 +90,7 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 		ct := resp.Header.Get("Content-Type")
 		if htmlscan.ShouldFetchBody(ct) {
 			next, via, body, ok := htmlscan.ReadAndDetect(resp.Body, 512*1024, u)
+			hop.Size = int64(len(body))
 			_ = resp.Body.Close()
 			if f := detect.PhishingIndicators(body, i); f != nil {
 				res.Findings = append(res.Findings, *f)
@@ -100,7 +105,7 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 					break
 				}
 				current = next.String()
-				res.Chain = append(res.Chain, model.Hop{Index: i, URL: current, Method: http.MethodGet, Status: 0, Via: via})
+				res.Chain = append(res.Chain, model.Hop{Index: i, URL: current, Method: http.MethodGet, Status: 0, Via: via, Size: int64(len(body))})
 				prevURL = u
 				if f := detect.TokenLeakage(next, i); f != nil {
 					res.Findings = append(res.Findings, *f)
@@ -114,6 +119,9 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 			res.Chain = append(res.Chain, hop)
 		} else {
 			_ = resp.Body.Close()
+			if resp.ContentLength >= 0 {
+				hop.Size = resp.ContentLength
+			}
 			hop.Final = true
 			res.Chain = append(res.Chain, hop)
 		}

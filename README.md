@@ -4,45 +4,34 @@ RedirectHunter is a security-focused command-line tool that discovers and traces
 
 ## Features
 
-- Severity scoring for findings (low/medium/high)
-- Plugin system with a built-in final URL SSRF detector
-- postfuzz mode for POST/PUT SSRF & Open Redirect fuzzing via body templates
-- Configurable HTTP client with custom headers, cookies, proxies, retries
-- HTML report with redirect chain visualization
-- JSONL output format for downstream processing
-- Response size (size) and duration (duration_ms) tracking
-- Redirect loop and excessive chain detection
-- Landing page phishing heuristics
-- Output modes: default, --silent, --summary, and --only-risky
-- Colourised terminal output aware of hop types
-- Rate-limited parallel scanning (default 10 threads)
+- Deterministic dual-report output: JSONL and HTML can be generated at the same time.
+- Built-in summary dashboard with client-side filtering in the HTML report.
+- Severity scoring for findings (low/medium/high) and plugin-sourced insights.
+- Plugin system with a built-in final URL SSRF detector.
+- Configurable HTTP client with custom headers, cookies, proxies, retries, and TLS controls.
+- Response size, duration, loop detection, phishing heuristics, and JS/meta redirect tracing.
+- Output modes: default, `--silent`, `--summary`, and `--only-risky` for console output control.
+- Rate-limited parallel scanning (default 10 threads) suitable for CI/CD pipelines.
 
 ## Quick Start
 
-Scan a single URL:
+The canonical run below exercises fuzzing, plugin loading, JSONL output, and the HTML report in one command. Copy/paste the snippet as-is; it writes sample artefacts to `./examples/` which are also committed to the repository for reference.
 
-```bash
-go run ./cmd/redirecthunter -u https://example.com
-```
-
-Fuzz a redirect parameter and generate reports
-
-```bash
-go run ./cmd/redirecthunter \
-  -u 'https://host/redirect-to?url=FUZZ' \
-  -w wordlist.txt -t 20 -rl 5 \
-  -o out.jsonl -html report.html
-```
-
-Advanced redirect fuzzing
 ```bash
 go run ./cmd/redirecthunter \
   -u 'https://host/redirect-to?url=FUZZ' \
   -w wordlist.txt -t 20 -rl 5 -timeout 20s -retries 3 \
   -max-chain 15 -js-scan -cookie 'session=abc123' -insecure \
   -summary -plugins final-ssrf \
-  -o out.jsonl -html report.html
+  -o ./examples/example.out.jsonl -html ./examples/example.report.html
 ```
+
+Key behaviours demonstrated by the command:
+
+- Loads `wordlist.txt` and replaces the single `FUZZ` token in the URL for each payload.
+- Runs 20 concurrent workers with a rate limit of 5 requests/second and resilient HTTP retries.
+- Enables JavaScript/meta redirect detection, insecure TLS for lab testing, and the `final-ssrf` plugin.
+- Emits deterministic JSONL and HTML reports (overwriting if the files already exist) while printing a concise console summary.
 
 POST body fuzzing (postfuzz mode)
 ```bash
@@ -56,76 +45,32 @@ go run ./cmd/postfuzz/main.go \
 ```
 
 
-```bash
-RedirectHunter (GET FUZZ)
--u Target URL (supports FUZZ)
--w Wordlist file (used when FUZZ is in URL)
--t Threads (default: 10)
--rl Global rate limit (requests per second)
--timeout Per-target timeout (default: 8s)
--retries Retry count (default: 1)
--max-chain Max redirect hops including JS/meta (default: 15)
--js-scan Enable JS/meta redirect detection (default: true)
--o JSONL output file
--html HTML report output file
--H Extra HTTP header (repeatable)
--cookie Cookie header
--proxy HTTP(S) proxy URL
--insecure Skip TLS verification
--silent Suppress chain output
--summary Show one-line summary per target
--only-risky Only output results with findings
--plugins Plugins to enable (default: final-ssrf)
-```
+## Common Flags
 
-```bash
-PostFuzz (POST / PUT Body FUZZ)
--u Target URL
--X HTTP method (POST, PUT)
---body Request body template (use FUZZ as placeholder)
---payloads Wordlist file used to replace FUZZ
---content-type Content-Type header (default: application/json)
--v Verbose mode
-```
+| Flag | Description |
+| ---- | ----------- |
+| `-u` | Target URL (supports a single `FUZZ` token for fuzzing). |
+| `-w` | Wordlist file used to expand `FUZZ` into concrete payloads. |
+| `-t` | Number of concurrent workers (default `10`). |
+| `-rl` | Rate limit in requests/second; `0` disables throttling. |
+| `-timeout` | Per-request timeout (default `8s`). |
+| `-retries` | Automatic HTTP retry count (default `1`). |
+| `-max-chain` | Maximum hops (server or client side) followed per target (default `15`). |
+| `-js-scan` | Enable client-side redirect detection (`true` by default). |
+| `-cookie` | Cookie header injected into every request. |
+| `-H` | Extra HTTP headers (`-H 'Key: Value'`, repeatable). |
+| `-proxy` | HTTP(S) proxy URL. |
+| `-insecure` | Skip TLS certificate verification (lab use only). |
+| `-summary` | Print one-line summaries instead of full chains. |
+| `-silent` | Suppress console output (still writes files). |
+| `-only-risky` | Print only targets with findings or errors. |
+| `-plugins` | Comma-separated plugin list (default `final-ssrf`). |
+| `-o` | JSONL output path; overwritten if it exists. |
+| `-html` | HTML report output path; overwritten if it exists. |
 
 Instance output.jsonl
 ```bash
-{
-  "target": "https://host.com",
-  "chain": [
-    {
-      "index": 0,
-      "url": "https://host.com",
-      "method": "GET",
-      "status": 302,
-      "via": "http-location",
-      "time_ms": 120,
-      "final": false,
-      "size": 420
-    },
-    {
-      "index": 1,
-      "url": "https://target.com",
-      "method": "GET",
-      "status": 200,
-      "via": "http-location",
-      "time_ms": 700,
-      "final": true,
-      "size": 648
-    }
-  ],
-  "findings": [
-    {
-      "type": "HTTPS_DOWNGRADE",
-      "at_hop": 1,
-      "severity": "medium",
-      "detail": "https:// -> http://"
-    }
-  ],
-  "started_at": "2025-09-08T19:15:22Z",
-  "duration_ms": 832
-}
-
+{"timestamp":"2024-04-01T12:00:00Z","input_url":"https://host/redirect-to?url=https://internal","payload":"https://internal","final_url":"https://internal","redirect_chain":["https://host/redirect-to?url=https://internal","https://internal"],"status_code":200,"resp_len":512,"duration_ms":142,"findings":[{"type":"HTTPS_DOWNGRADE","at_hop":1,"severity":"medium","detail":"https:// -> http://","source":"core"}],"plugin_findings":[{"type":"FINAL_SSRF","at_hop":1,"severity":"high","detail":"https://internal","source":"final-ssrf"}]}
 ```
 ## Legal Disclaimer
 - You have explicit written permission to test any target system.
