@@ -492,6 +492,12 @@ func ensureDir(path string) error {
 
 func printConsole(results []model.Result, views []output.ResultView, opts options) {
 	total := len(results)
+	width := len(strconv.Itoa(total))
+	var (
+		total302 int
+		total200 int
+		total404 int
+	)
 	for i, res := range results {
 		view := views[i]
 		coreCount := countCoreFindings(res.Findings)
@@ -502,10 +508,49 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 		}
 
 		if opts.summary {
-			fmt.Printf("[%d/%d] %s -> %s | status=%s | core=%d | plugin=%d | duration=%dms\n", i+1, total, view.InputURL, view.FinalURL, statuscolor.Sprint(view.StatusCode), coreCount, pluginCount, view.DurationMs)
 			if hasError {
-				fmt.Printf("    error: %s\n", res.Error)
+				line := fmt.Sprintf("[%*d/%d] %s | error: %s", width, i+1, total, view.InputURL, res.Error)
+				fmt.Println(statuscolor.Gray(line))
+				continue
 			}
+
+			chainParts := make([]string, 0, len(res.Chain))
+			for _, hop := range res.Chain {
+				chainParts = append(chainParts, statuscolor.Sprint(hop.Status))
+			}
+			chainText := "—"
+			if len(chainParts) > 0 {
+				chainText = strings.Join(chainParts, "→")
+			}
+
+			finalURL := view.FinalURL
+			if finalURL == "" {
+				finalURL = "—"
+			}
+
+			switch view.StatusCode {
+			case http.StatusFound:
+				total302++
+			case http.StatusOK:
+				total200++
+			case http.StatusNotFound:
+				total404++
+			}
+
+			line := fmt.Sprintf(
+				"[%*d/%d] %s -> %s | chain: %s | final=%s | core=%2d | plugin=%2d | duration=%dms",
+				width,
+				i+1,
+				total,
+				view.InputURL,
+				finalURL,
+				chainText,
+				statuscolor.Sprint(view.StatusCode),
+				coreCount,
+				pluginCount,
+				view.DurationMs,
+			)
+			fmt.Println(line)
 			continue
 		}
 
@@ -536,6 +581,12 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 			fmt.Printf("Error: %s\n", res.Error)
 		}
 		fmt.Printf("Duration: %dms\n\n", view.DurationMs)
+	}
+
+	if opts.summary {
+		fmt.Printf("✅ total %d redirects\n", total302)
+		fmt.Printf("⚠️ total %d OK\n", total200)
+		fmt.Printf("❌ total %d not found\n", total404)
 	}
 }
 
