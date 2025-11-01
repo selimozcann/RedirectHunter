@@ -494,9 +494,9 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 	total := len(results)
 	width := len(strconv.Itoa(total))
 	var (
-		total302 int
-		total200 int
-		total404 int
+		totalRedirect int
+		totalOK       int
+		totalError    int
 	)
 	for i, res := range results {
 		view := views[i]
@@ -528,23 +528,43 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 				finalURL = "—"
 			}
 
-			switch view.StatusCode {
-			case http.StatusFound:
-				total302++
-			case http.StatusOK:
-				total200++
-			case http.StatusNotFound:
-				total404++
+			statusSegment := fmt.Sprintf("status=%s", statuscolor.Sprint(view.StatusCode))
+
+			var (
+				saw302      bool
+				has302To200 bool
+			)
+			for _, hop := range res.Chain {
+				if hop.Status == http.StatusFound {
+					saw302 = true
+				}
+				if saw302 && hop.Status == http.StatusOK {
+					has302To200 = true
+					break
+				}
+			}
+
+			switch {
+			case has302To200:
+				statusSegment = statuscolor.WrapByStatus("redirect", http.StatusFound)
+				totalRedirect++
+			case view.StatusCode == http.StatusOK:
+				statusSegment = statuscolor.WrapByStatus("ok", http.StatusOK)
+				totalOK++
+			case view.StatusCode == http.StatusNotFound:
+				statusSegment = statuscolor.WrapByStatus("error", http.StatusNotFound)
+				totalError++
 			}
 
 			line := fmt.Sprintf(
-				"[%*d/%d] %s -> %s | chain: %s | final=%s | core=%2d | plugin=%2d | duration=%dms",
+				"[%*d/%d] %s -> %s | chain: %s | %s | final=%s | core=%2d | plugin=%2d | duration=%dms",
 				width,
 				i+1,
 				total,
 				view.InputURL,
 				finalURL,
 				chainText,
+				statusSegment,
 				statuscolor.Sprint(view.StatusCode),
 				coreCount,
 				pluginCount,
@@ -584,9 +604,7 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 	}
 
 	if opts.summary {
-		fmt.Printf("✅ total %d redirects\n", total302)
-		fmt.Printf("⚠️ total %d OK\n", total200)
-		fmt.Printf("❌ total %d not found\n", total404)
+		fmt.Printf("Summary: ✅ %d redirects | ⚠️ %d ok | ❌ %d errors\n", totalRedirect, totalOK, totalError)
 	}
 }
 
