@@ -6,11 +6,24 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/selimozcann/RedirectHunter/internal/model"
+	"github.com/selimozcann/RedirectHunter/internal/util"
+)
+
+// ResultType enumerates the classification of a redirect chain.
+type ResultType string
+
+const (
+	ResultTypeUnknown    ResultType = "unknown"
+	ResultTypeRedirect   ResultType = "redirect"
+	ResultTypeUnredirect ResultType = "unredirect"
+	ResultTypeOK         ResultType = "ok"
+	ResultTypeError      ResultType = "error"
 )
 
 // Record represents one line in the JSONL report.
@@ -19,6 +32,7 @@ type Record struct {
 	InputURL       string          `json:"input_url"`
 	Payload        string          `json:"payload,omitempty"`
 	FinalURL       string          `json:"final_url"`
+	Type           ResultType      `json:"type"`
 	RedirectChain  []string        `json:"redirect_chain"`
 	StatusCode     int             `json:"status_code"`
 	RespLen        int64           `json:"resp_len"`
@@ -43,6 +57,7 @@ type ResultView struct {
 	InputURL       string
 	Payload        string
 	FinalURL       string
+	Type           ResultType
 	StatusCode     int
 	RespLen        int64
 	DurationMs     int64
@@ -88,6 +103,7 @@ func BuildRecord(res model.Result) Record {
 		InputURL:       res.Target,
 		Payload:        res.Payload,
 		FinalURL:       finalURL,
+		Type:           DetermineType(res),
 		RedirectChain:  chainStrings,
 		StatusCode:     status,
 		RespLen:        respLen,
@@ -115,6 +131,7 @@ func BuildResultView(idx int, res model.Result) ResultView {
 		InputURL:       res.Target,
 		Payload:        res.Payload,
 		FinalURL:       finalURL,
+		Type:           DetermineType(res),
 		StatusCode:     status,
 		RespLen:        respLen,
 		DurationMs:     res.DurationMs,
@@ -138,6 +155,45 @@ func BuildSummary(results []model.Result) Summary {
 		}
 	}
 	return sum
+}
+
+// DetermineType classifies the given result into one of the ResultType values.
+func DetermineType(res model.Result) ResultType {
+	finalURL := res.Target
+	finalStatus := 0
+	if len(res.Chain) > 0 {
+		last := res.Chain[len(res.Chain)-1]
+		finalURL = last.URL
+		finalStatus = last.Status
+	}
+	if hasRedirectHop(res.Chain) {
+		if util.SameBaseDomain(res.Target, finalURL) {
+			return ResultTypeUnredirect
+		}
+		return ResultTypeRedirect
+	}
+	if res.Error != "" {
+		return ResultTypeError
+	}
+	switch {
+	case finalStatus == http.StatusOK:
+		return ResultTypeOK
+	case finalStatus == 0:
+		return ResultTypeUnknown
+	case finalStatus >= 400:
+		return ResultTypeError
+	default:
+		return ResultTypeOK
+	}
+}
+
+func hasRedirectHop(chain []model.Hop) bool {
+	for _, hop := range chain {
+		if hop.Status >= 300 && hop.Status < 400 {
+			return true
+		}
+	}
+	return false
 }
 
 // WriteJSONL writes each record as a JSON line to w.

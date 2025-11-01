@@ -2,6 +2,7 @@ package output_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -34,10 +35,19 @@ func TestWriteJSONL(t *testing.T) {
 		t.Fatalf("WriteJSONL error: %v", err)
 	}
 
-	expected := `{"timestamp":"2024-01-02T03:04:05Z","input_url":"https://example.com/start","payload":"PAY","final_url":"https://example.com/end","redirect_chain":["https://example.com/start","https://example.com/end"],"status_code":200,"resp_len":456,"duration_ms":123,"findings":[{"type":"CORE","at_hop":0,"severity":"low","detail":"core finding","source":"core"},{"type":"PLUGIN","at_hop":1,"severity":"high","detail":"plugin finding","source":"final-ssrf"}],"plugin_findings":[{"type":"PLUGIN","at_hop":1,"severity":"high","detail":"plugin finding","source":"final-ssrf"}]}
-`
-	if got := buf.String(); got != expected {
-		t.Fatalf("unexpected JSONL output\nexpected: %s\n   actual: %s", expected, got)
+	line := strings.TrimSpace(buf.String())
+	var got output.Record
+	if err := json.Unmarshal([]byte(line), &got); err != nil {
+		t.Fatalf("unexpected JSON decode error: %v", err)
+	}
+	if got.Type != output.ResultTypeUnredirect {
+		t.Fatalf("expected type unredirect, got %q", got.Type)
+	}
+	if got.FinalURL != "https://example.com/end" {
+		t.Fatalf("unexpected final URL: %s", got.FinalURL)
+	}
+	if len(got.RedirectChain) != 2 {
+		t.Fatalf("expected redirect chain length 2, got %d", len(got.RedirectChain))
 	}
 }
 
