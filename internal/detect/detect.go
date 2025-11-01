@@ -21,7 +21,7 @@ var tokenKeys = map[string]bool{
 // SSRF checks whether the URL points to an internal host.
 func SSRF(u *url.URL, hop int) *model.Finding {
 	if util.IsInternalHost(u.Hostname()) {
-		return &model.Finding{Type: "SSRF", Severity: "high", AtHop: hop, Detail: u.Host}
+		return &model.Finding{Type: "SSRF", Severity: "high", AtHop: hop, Detail: u.Host, Source: "core"}
 	}
 	return nil
 }
@@ -29,7 +29,7 @@ func SSRF(u *url.URL, hop int) *model.Finding {
 // HTTPSDowngrade reports if the scheme changed from https to http.
 func HTTPSDowngrade(prev, next *url.URL, hop int) *model.Finding {
 	if prev.Scheme == "https" && next.Scheme == "http" {
-		return &model.Finding{Type: "HTTPS_DOWNGRADE", Severity: "medium", AtHop: hop, Detail: prev.String() + " -> " + next.String()}
+		return &model.Finding{Type: "HTTPS_DOWNGRADE", Severity: "medium", AtHop: hop, Detail: prev.String() + " -> " + next.String(), Source: "core"}
 	}
 	return nil
 }
@@ -39,14 +39,14 @@ func TokenLeakage(u *url.URL, hop int) *model.Finding {
 	q := u.Query()
 	for k := range q {
 		if tokenKeys[strings.ToLower(k)] {
-			return &model.Finding{Type: "TOKEN_LEAK", Severity: "medium", AtHop: hop, Detail: k + " in query"}
+			return &model.Finding{Type: "TOKEN_LEAK", Severity: "medium", AtHop: hop, Detail: k + " in query", Source: "core"}
 		}
 	}
 	if frag := u.Fragment; frag != "" {
 		for _, part := range strings.Split(frag, "&") {
 			kv := strings.SplitN(part, "=", 2)
 			if tokenKeys[strings.ToLower(kv[0])] {
-				return &model.Finding{Type: "TOKEN_LEAK", Severity: "high", AtHop: hop, Detail: kv[0] + " in fragment"}
+				return &model.Finding{Type: "TOKEN_LEAK", Severity: "high", AtHop: hop, Detail: kv[0] + " in fragment", Source: "core"}
 			}
 		}
 	}
@@ -58,12 +58,12 @@ func TokenLeakage(u *url.URL, hop int) *model.Finding {
 func PhishingIndicators(body []byte, hop int) *model.Finding {
 	lower := bytes.ToLower(body)
 	if bytes.Contains(lower, []byte("<form")) && bytes.Contains(lower, []byte("password")) {
-		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "high", AtHop: hop, Detail: "form with password field"}
+		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "high", AtHop: hop, Detail: "form with password field", Source: "core"}
 
 	}
 	isLowSeverity := bytes.Contains(lower, []byte("document.forms")) || bytes.Contains(lower, []byte("eval(")) || bytes.Contains(lower, []byte("username"))
 	if isLowSeverity {
-		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "low", AtHop: hop, Detail: "suspicious javascript"}
+		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "low", AtHop: hop, Detail: "suspicious javascript", Source: "core"}
 	}
 	return nil
 }

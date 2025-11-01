@@ -15,19 +15,44 @@ type Plugin interface {
 	Evaluate(ctx context.Context, res *model.Result) []model.Finding
 }
 
+var registry = map[string]func() Plugin{
+	"final-ssrf": func() Plugin { return &finalSSRF{} },
+}
+
 // Load returns plugin implementations for the provided comma separated list.
 func Load(list string) []Plugin {
-	var plugins []Plugin
-	for _, name := range strings.Split(list, ",") {
-		name = strings.TrimSpace(name)
-		switch name {
-		case "", "none":
-			// ignore
-		case "final-ssrf", "ssrf":
-			plugins = append(plugins, &finalSSRF{})
-		}
-	}
+	plugins, _ := LoadWithWarnings(list)
 	return plugins
+}
+
+// LoadWithWarnings returns plugins along with unknown names that were ignored.
+func LoadWithWarnings(list string) ([]Plugin, []string) {
+	var (
+		plugins []Plugin
+		unknown []string
+	)
+	seen := make(map[string]bool)
+	for _, name := range strings.Split(list, ",") {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" || strings.EqualFold(trimmed, "none") {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if key == "ssrf" {
+			key = "final-ssrf"
+		}
+		factory, ok := registry[key]
+		if !ok {
+			unknown = append(unknown, trimmed)
+			continue
+		}
+		if seen[key] {
+			continue
+		}
+		plugins = append(plugins, factory())
+		seen[key] = true
+	}
+	return plugins, unknown
 }
 
 // finalSSRF checks if the final URL resolves to an internal host.
@@ -45,7 +70,7 @@ func (p *finalSSRF) Evaluate(ctx context.Context, res *model.Result) []model.Fin
 		return nil
 	}
 	if util.IsInternalHost(u.Hostname()) {
-		return []model.Finding{{Type: "FINAL_SSRF", Severity: "high", AtHop: last.Index, Detail: last.URL}}
+		return []model.Finding{{Type: "FINAL_SSRF", Severity: "high", AtHop: last.Index, Detail: last.URL, Source: p.Name()}}
 	}
 	return nil
 }

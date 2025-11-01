@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RedirectHunter Report</title>
+<style>
+:root { color-scheme: light dark; }
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; background:#fafafa; color:#111; }
+header { margin-bottom: 24px; }
+h1 { font-size: 26px; margin: 0 0 8px; }
+.section { border:1px solid #e5e7eb; border-radius:16px; padding:16px 20px; margin-bottom:18px; background:#fff; box-shadow:0 1px 2px rgba(15,23,42,0.08); }
+h2 { font-size:20px; margin:0 0 12px; }
+h3 { font-size:16px; margin:12px 0 6px; }
+dt { font-weight:600; }
+dd { margin:0 0 8px 0; }
+.summary-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); }
+.summary-card { display:block; padding:12px; border-radius:12px; border:1px solid #cbd5f5; text-decoration:none; color:inherit; position:relative; transition:box-shadow .2s ease; background:linear-gradient(180deg,#eef2ff,#fff); }
+.summary-card:hover { box-shadow:0 8px 16px rgba(79,70,229,0.2); }
+.summary-card[data-active="true"] { border-color:#4f46e5; box-shadow:0 0 0 2px rgba(79,70,229,0.4); }
+.summary-card .badge { position:absolute; top:12px; right:12px; padding:2px 10px; border-radius:999px; background:#4f46e5; color:#fff; font-size:12px; }
+.meta { color:#6b7280; font-size:12px; }
+.finding-row { border-top:1px solid #e5e7eb; padding-top:12px; margin-top:12px; }
+.finding-row:first-of-type { border-top:none; padding-top:0; margin-top:0; }
+.finding-list { list-style:disc; margin:8px 0 8px 20px; }
+.badge-inline { display:inline-block; padding:2px 8px; border-radius:999px; background:#e5e7eb; font-size:12px; margin-left:6px; }
+.table { width:100%; border-collapse:collapse; font-size:14px; }
+.table th, .table td { border-bottom:1px solid #e5e7eb; padding:6px 8px; text-align:left; }
+.table th { background:#f9fafb; }
+.chain-url { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; }
+.chain-meta { color:#6b7280; font-size:12px; }
+.footer { text-align:center; font-size:12px; color:#6b7280; margin-top:24px; }
+@media (prefers-color-scheme: dark) {
+        body { background:#0f172a; color:#e2e8f0; }
+        .section { background:#1e293b; border-color:#334155; box-shadow:none; }
+        .summary-card { background:linear-gradient(180deg,#312e81,#1e293b); border-color:#4338ca; color:#e0e7ff; }
+        .summary-card .badge { background:#a855f7; }
+        .meta { color:#94a3b8; }
+        .table th { background:#1e293b; }
+        .chain-meta { color:#94a3b8; }
+        .badge-inline { background:#475569; }
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const cards = document.querySelectorAll('[data-filter]');
+  const rows = document.querySelectorAll('.finding-row');
+  const notice = document.getElementById('filterNotice');
+  function apply(filter) {
+    cards.forEach(c => c.dataset.active = (c.dataset.filter === filter ? 'true' : 'false'));
+    rows.forEach(row => {
+      const hasCore = Number(row.dataset.core);
+      const hasPlugin = Number(row.dataset.plugin);
+      const hasError = Number(row.dataset.error);
+      let show = true;
+      let text = 'Showing all targets.';
+      switch(filter) {
+        case 'core':
+          show = hasCore > 0;
+          text = 'Filtered to targets with core findings.';
+          break;
+        case 'plugin':
+          show = hasPlugin > 0;
+          text = 'Filtered to targets with plugin findings.';
+          break;
+        case 'errors':
+          show = hasError > 0;
+          text = 'Filtered to targets with errors only.';
+          break;
+        default:
+          show = true;
+      }
+      if (show) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+      if (notice) {
+        notice.textContent = text;
+      }
+    });
+  }
+  cards.forEach(card => {
+    card.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      apply(card.dataset.filter || 'all');
+      const target = card.getAttribute('href');
+      if (target) {
+        const el = document.querySelector(target);
+        if (el) {
+          el.scrollIntoView({behavior: 'smooth'});
+        }
+      }
+    });
+  });
+  apply('all');
+});
+</script>
+</head>
+<body>
+<header>
+  <h1>RedirectHunter Report</h1>
+  <p class="meta">Generated at 2024-04-01T12:05:00Z</p>
+</header>
+<section id="summary" class="section">
+  <h2>Summary</h2>
+  <div class="summary-grid">
+    <a class="summary-card" href="#chains" data-filter="all"><strong>Total Targets</strong><span class="badge">2</span></a>
+    <a class="summary-card" href="#findings" data-filter="core"><strong>Targets with Findings</strong><span class="badge">1</span></a>
+    <a class="summary-card" href="#plugin-findings" data-filter="plugin"><strong>Plugin Findings</strong><span class="badge">1</span></a>
+    <a class="summary-card" href="#findings" data-filter="errors"><strong>Errors</strong><span class="badge">0</span></a>
+  </div>
+</section>
+<section id="parameters" class="section">
+  <h2>Parameters</h2>
+  <dl>
+    <dt>cookie</dt>
+    <dd><span class="chain-url">session=abc123</span></dd>
+    <dt>insecure</dt>
+    <dd><span class="chain-url">true</span></dd>
+    <dt>js_scan</dt>
+    <dd><span class="chain-url">true</span></dd>
+    <dt>max_chain</dt>
+    <dd><span class="chain-url">15</span></dd>
+    <dt>output_html</dt>
+    <dd><span class="chain-url">./examples/example.report.html</span></dd>
+    <dt>output_jsonl</dt>
+    <dd><span class="chain-url">./examples/example.out.jsonl</span></dd>
+    <dt>plugins</dt>
+    <dd><span class="chain-url">final-ssrf</span></dd>
+    <dt>rate_limit</dt>
+    <dd><span class="chain-url">5</span></dd>
+    <dt>retries</dt>
+    <dd><span class="chain-url">3</span></dd>
+    <dt>summary</dt>
+    <dd><span class="chain-url">true</span></dd>
+    <dt>target</dt>
+    <dd><span class="chain-url">https://host/redirect-to?url=FUZZ</span></dd>
+    <dt>threads</dt>
+    <dd><span class="chain-url">20</span></dd>
+    <dt>timeout</dt>
+    <dd><span class="chain-url">20s</span></dd>
+    <dt>wordlist</dt>
+    <dd><span class="chain-url">wordlist.txt</span></dd>
+  </dl>
+</section>
+<section id="findings" class="section">
+  <h2>Findings</h2>
+  <p class="meta" id="filterNotice">Showing all targets.</p>
+  
+  <div class="finding-row" data-core="2" data-plugin="1" data-error="0">
+    <h3>https://host/redirect-to?url=https://internal<span class="badge-inline">Status 200</span></h3>
+    <p class="meta">Payload: <span class="chain-url">https://internal</span></p>
+    
+    
+      <p><strong>Core Findings</strong></p>
+      <ul class="finding-list">
+        
+          <li><strong>medium</strong>: HTTPS_DOWNGRADE — https:// -&gt; http://</li>
+        
+          <li><strong>high</strong>: FINAL_SSRF — https://internal</li>
+        
+      </ul>
+    
+    
+      <p><strong>Plugin Findings</strong></p>
+      <ul class="finding-list">
+        
+          <li><strong>high</strong>: FINAL_SSRF — https://internal <span class="meta">final-ssrf</span></li>
+        
+      </ul>
+    
+    <p class="meta">Duration 142ms • Response 512 bytes • Started 2024-04-01T12:00:00Z</p>
+  </div>
+  
+  <div class="finding-row" data-core="0" data-plugin="0" data-error="0">
+    <h3>https://host/redirect-to?url=https://example.org<span class="badge-inline">Status 200</span></h3>
+    <p class="meta">Payload: <span class="chain-url">https://example.org</span></p>
+    
+    
+    
+    <p class="meta">Duration 95ms • Response 684 bytes • Started 2024-04-01T12:00:02Z</p>
+  </div>
+  
+</section>
+<section id="chains" class="section">
+  <h2>Redirect Chains</h2>
+  
+    <details open>
+      <summary>https://host/redirect-to?url=https://internal → https://internal <span class="meta">2 hops</span></summary>
+      <table class="table">
+        <thead>
+          <tr><th>#</th><th>URL</th><th>Method</th><th>Status</th><th>Via</th><th>Time (ms)</th><th>Size</th></tr>
+        </thead>
+        <tbody>
+        
+          <tr>
+            <td>0</td>
+            <td class="chain-url">https://host/redirect-to?url=https://internal</td>
+            <td>GET</td>
+            <td>302</td>
+            <td>http-location</td>
+            <td>41</td>
+            <td>180</td>
+          </tr>
+        
+          <tr>
+            <td>1</td>
+            <td class="chain-url">https://internal</td>
+            <td>GET</td>
+            <td>200</td>
+            <td>http-location</td>
+            <td>101</td>
+            <td>512</td>
+          </tr>
+        
+        </tbody>
+      </table>
+    </details>
+  
+    <details open>
+      <summary>https://host/redirect-to?url=https://example.org → https://example.org <span class="meta">2 hops</span></summary>
+      <table class="table">
+        <thead>
+          <tr><th>#</th><th>URL</th><th>Method</th><th>Status</th><th>Via</th><th>Time (ms)</th><th>Size</th></tr>
+        </thead>
+        <tbody>
+        
+          <tr>
+            <td>0</td>
+            <td class="chain-url">https://host/redirect-to?url=https://example.org</td>
+            <td>GET</td>
+            <td>302</td>
+            <td>http-location</td>
+            <td>33</td>
+            <td>150</td>
+          </tr>
+        
+          <tr>
+            <td>1</td>
+            <td class="chain-url">https://example.org</td>
+            <td>GET</td>
+            <td>200</td>
+            <td>http-location</td>
+            <td>62</td>
+            <td>684</td>
+          </tr>
+        
+        </tbody>
+      </table>
+    </details>
+  
+</section>
+<section id="plugin-findings" class="section">
+  <h2>Plugin Findings</h2>
+  
+    <ul class="finding-list">
+    
+        <li><span class="chain-url">https://host/redirect-to?url=https://internal</span> — <strong>high</strong> FINAL_SSRF (final-ssrf) — https://internal</li>
+      
+    
+    
+    </ul>
+  
+</section>
+<footer class="footer">
+  RedirectHunter report generated at 2024-04-01T12:05:00Z
+</footer>
+</body>
+</html>
