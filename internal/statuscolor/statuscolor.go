@@ -42,6 +42,12 @@ func Sprint(status int) string {
 	return fmt.Sprintf("%s%d%s", colorFor(status), status, colorReset)
 }
 
+// WrapByStatus wraps the provided text with the color that corresponds to the
+// supplied status code.
+func WrapByStatus(text string, status int) string {
+	return fmt.Sprintf("%s%s%s", colorFor(status), text, colorReset)
+}
+
 // Gray wraps the provided text with a gray ANSI color.
 func Gray(text string) string {
 	return fmt.Sprintf("%s%s%s", colorGray, text, colorReset)
