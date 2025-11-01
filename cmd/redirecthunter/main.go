@@ -3,13 +3,17 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"html"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -48,6 +52,13 @@ type options struct {
 	outputHTML  string
 }
 
+type summaryRow struct {
+	View           output.ResultView
+	CoreFindings   int
+	PluginFindings int
+	Error          string
+}
+
 func main() {
 	opts := parseFlags()
 	banner.PrintBanner()
@@ -76,8 +87,8 @@ func parseFlags() options {
 	flag.BoolVar(&opts.summary, "summary", false, "Show one-line summary per target")
 	flag.BoolVar(&opts.onlyRisky, "only-risky", false, "Only output results with findings")
 	flag.StringVar(&opts.plugins, "plugins", "final-ssrf", "Plugins to enable (comma-separated)")
-	flag.StringVar(&opts.outputJSONL, "o", "", "JSONL output file")
-	flag.StringVar(&opts.outputHTML, "html", "", "HTML report output file")
+	flag.StringVar(&opts.outputJSONL, "o", "out.jsonl", "JSONL output file")
+	flag.StringVar(&opts.outputHTML, "html", "report.html", "HTML report output file")
 	flag.Parse()
 	return opts
 }
@@ -165,12 +176,47 @@ func run(opts options) error {
 		}
 	}
 
-	views := make([]output.ResultView, len(results))
-	records := make([]output.Record, len(results))
-	for i, res := range results {
-		views[i] = output.BuildResultView(i, res)
-		records[i] = output.BuildRecord(res)
+	var (
+		jsonFile   *os.File
+		jsonWriter *bufio.Writer
+		jsonEnc    *json.Encoder
+	)
+	if opts.outputJSONL != "" {
+		var err error
+		jsonFile, jsonWriter, jsonEnc, err = openJSONLAppender(opts.outputJSONL)
+		if err != nil {
+			return err
+		}
+		defer jsonFile.Close()
 	}
+
+	views := make([]output.ResultView, len(results))
+	rows := make([]summaryRow, len(results))
+	for i, res := range results {
+		view := output.BuildResultView(i, res)
+		views[i] = view
+		rows[i] = summaryRow{
+			View:           view,
+			CoreFindings:   countCoreFindings(res.Findings),
+			PluginFindings: len(res.PluginFindings),
+			Error:          res.Error,
+		}
+		if jsonEnc != nil {
+			record := output.BuildRecord(res)
+			if err := jsonEnc.Encode(record); err != nil {
+				return fmt.Errorf("write JSONL: %w", err)
+			}
+		}
+	}
+	if jsonWriter != nil {
+		if err := jsonWriter.Flush(); err != nil {
+			return fmt.Errorf("flush JSONL: %w", err)
+		}
+		if opts.verbose {
+			fmt.Fprintf(os.Stderr, "[append] JSONL report -> %s\n", opts.outputJSONL)
+		}
+	}
+
 	summary := output.BuildSummary(results)
 
 	if !opts.silent {
@@ -178,20 +224,9 @@ func run(opts options) error {
 	}
 
 	params := buildParamsMap(opts, len(targets))
-	if opts.outputJSONL != "" {
-		if err := writeJSONLFile(opts.outputJSONL, records, opts.verbose); err != nil {
-			return err
-		}
-	}
 	if opts.outputHTML != "" {
-		page := output.PageData{
-			Title:       "RedirectHunter Report",
-			GeneratedAt: time.Now().UTC(),
-			Params:      params,
-			Summary:     summary,
-			Results:     views,
-		}
-		if err := writeHTMLFile(opts.outputHTML, page, opts.verbose); err != nil {
+		generatedAt := time.Now().UTC()
+		if err := writeHTMLSummaryFile(opts.outputHTML, generatedAt, params, summary, rows, opts.verbose); err != nil {
 			return err
 		}
 	}
@@ -300,25 +335,21 @@ func buildParamsMap(opts options, targetCount int) map[string]string {
 	return params
 }
 
-func writeJSONLFile(path string, records []output.Record, verbose bool) error {
+func openJSONLAppender(path string) (*os.File, *bufio.Writer, *json.Encoder, error) {
 	if err := ensureDir(path); err != nil {
-		return fmt.Errorf("create JSONL directory: %w", err)
+		return nil, nil, nil, fmt.Errorf("create JSONL directory: %w", err)
 	}
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
-		return fmt.Errorf("create JSONL file: %w", err)
+		return nil, nil, nil, fmt.Errorf("open JSONL file: %w", err)
 	}
-	defer f.Close()
-	if err := output.WriteJSONL(f, records); err != nil {
-		return fmt.Errorf("write JSONL: %w", err)
-	}
-	if verbose {
-		fmt.Fprintf(os.Stderr, "[write] JSONL report -> %s\n", path)
-	}
-	return nil
+	writer := bufio.NewWriter(f)
+	enc := json.NewEncoder(writer)
+	enc.SetEscapeHTML(false)
+	return f, writer, enc, nil
 }
 
-func writeHTMLFile(path string, page output.PageData, verbose bool) error {
+func writeHTMLSummaryFile(path string, generatedAt time.Time, params map[string]string, summary output.Summary, rows []summaryRow, verbose bool) error {
 	if err := ensureDir(path); err != nil {
 		return fmt.Errorf("create HTML directory: %w", err)
 	}
@@ -327,13 +358,128 @@ func writeHTMLFile(path string, page output.PageData, verbose bool) error {
 		return fmt.Errorf("create HTML file: %w", err)
 	}
 	defer f.Close()
-	if err := output.RenderHTML(f, page); err != nil {
-		return fmt.Errorf("write HTML: %w", err)
+	if err := renderTinySummaryHTML(f, generatedAt, params, summary, rows); err != nil {
+		return fmt.Errorf("write HTML summary: %w", err)
 	}
 	if verbose {
-		fmt.Fprintf(os.Stderr, "[write] HTML report -> %s\n", path)
+		fmt.Fprintf(os.Stderr, "[write] HTML summary -> %s\n", path)
 	}
 	return nil
+}
+
+func renderTinySummaryHTML(w io.Writer, generatedAt time.Time, params map[string]string, summary output.Summary, rows []summaryRow) error {
+	buf := bufio.NewWriter(w)
+	fmt.Fprintln(buf, "<!doctype html>")
+	fmt.Fprintln(buf, "<html lang=\"en\">")
+	fmt.Fprintln(buf, "<head>")
+	fmt.Fprintln(buf, "<meta charset=\"utf-8\">")
+	fmt.Fprintln(buf, "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">")
+	fmt.Fprintln(buf, "<title>RedirectHunter Summary</title>")
+	fmt.Fprintln(buf, "<style>")
+	fmt.Fprintln(buf, "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:24px;background:#f9fafb;color:#0f172a;}")
+	fmt.Fprintln(buf, "h1{font-size:24px;margin:0 0 12px;}")
+	fmt.Fprintln(buf, "h2{font-size:18px;margin:24px 0 12px;}")
+	fmt.Fprintln(buf, ".meta{color:#64748b;font-size:12px;margin-top:4px;}")
+	fmt.Fprintln(buf, ".overview{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0 8px;padding:0;list-style:none;}")
+	fmt.Fprintln(buf, ".overview li{flex:1 1 180px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 16px;box-shadow:0 1px 3px rgba(15,23,42,0.08);}")
+	fmt.Fprintln(buf, ".overview strong{display:block;font-size:20px;color:#0f172a;}")
+	fmt.Fprintln(buf, ".params{margin-top:24px;}")
+	fmt.Fprintln(buf, ".params dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 16px;margin:0;padding:0;}")
+	fmt.Fprintln(buf, ".params dt{font-weight:600;color:#0f172a;}")
+	fmt.Fprintln(buf, ".params dd{margin:0;color:#475569;word-break:break-word;}")
+	fmt.Fprintln(buf, ".results{width:100%;border-collapse:collapse;margin-top:24px;font-size:14px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;}")
+	fmt.Fprintln(buf, ".results th,.results td{border-bottom:1px solid #e2e8f0;padding:10px 12px;text-align:left;vertical-align:top;}")
+	fmt.Fprintln(buf, ".results th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:#475569;}")
+	fmt.Fprintln(buf, ".results tr:last-child td{border-bottom:none;}")
+	fmt.Fprintln(buf, ".url{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;word-break:break-all;}")
+	fmt.Fprintln(buf, ".badge{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;}")
+	fmt.Fprintln(buf, ".badge.good{background:#dcfce7;color:#166534;}")
+	fmt.Fprintln(buf, ".badge.bad{background:#fee2e2;color:#b91c1c;}")
+	fmt.Fprintln(buf, ".badge.neutral{background:#e2e8f0;color:#1f2937;}")
+	fmt.Fprintln(buf, ".row-error{background:rgba(248,113,113,0.08);}")
+	fmt.Fprintln(buf, "@media (prefers-color-scheme: dark){body{background:#0f172a;color:#e2e8f0;} .overview li{background:#111c3a;border-color:#1e293b;color:#e2e8f0;} .params dt{color:#e2e8f0;} .params dd{color:#cbd5f5;} .results{background:#0f172a;border-color:#1e293b;} .results th{background:#111c3a;color:#cbd5f5;} .results td{border-color:#1e293b;} .row-error{background:rgba(248,113,113,0.18);} }")
+	fmt.Fprintln(buf, "</style>")
+	fmt.Fprintln(buf, "</head>")
+	fmt.Fprintln(buf, "<body>")
+	fmt.Fprintln(buf, "<header>")
+	fmt.Fprintln(buf, "<h1>RedirectHunter Summary</h1>")
+	fmt.Fprintf(buf, "<div class=\"meta\">Generated %s</div>\n", html.EscapeString(generatedAt.Format(time.RFC3339)))
+	fmt.Fprintln(buf, "</header>")
+	fmt.Fprintln(buf, "<ul class=\"overview\">")
+	fmt.Fprintf(buf, "<li><strong>%d</strong><span class=\"meta\">Total targets</span></li>\n", summary.TotalTargets)
+	fmt.Fprintf(buf, "<li><strong>%d</strong><span class=\"meta\">Targets with findings</span></li>\n", summary.WithFindings)
+	fmt.Fprintf(buf, "<li><strong>%d</strong><span class=\"meta\">Plugin findings</span></li>\n", summary.PluginFindings)
+	fmt.Fprintf(buf, "<li><strong>%d</strong><span class=\"meta\">Errors</span></li>\n", summary.Errors)
+	fmt.Fprintln(buf, "</ul>")
+
+	if len(params) > 0 {
+		keys := make([]string, 0, len(params))
+		for k := range params {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		fmt.Fprintln(buf, "<section class=\"params\">")
+		fmt.Fprintln(buf, "<h2>Run parameters</h2>")
+		fmt.Fprintln(buf, "<dl>")
+		for _, key := range keys {
+			fmt.Fprintf(buf, "<dt>%s</dt><dd>%s</dd>\n", html.EscapeString(key), html.EscapeString(params[key]))
+		}
+		fmt.Fprintln(buf, "</dl>")
+		fmt.Fprintln(buf, "</section>")
+	}
+
+	fmt.Fprintln(buf, "<table class=\"results\">")
+	fmt.Fprintln(buf, "<thead><tr><th>#</th><th>Input</th><th>Final</th><th>Status</th><th>Core</th><th>Plugin</th><th>Duration</th><th>Error</th></tr></thead>")
+	fmt.Fprintln(buf, "<tbody>")
+	for _, row := range rows {
+		rowClass := ""
+		if row.Error != "" {
+			rowClass = " class=\"row-error\""
+		}
+		payloadMeta := ""
+		if row.View.Payload != "" {
+			payloadMeta = fmt.Sprintf("<div class=\"meta\">payload: %s</div>", html.EscapeString(row.View.Payload))
+		}
+		finalURL := "—"
+		if row.View.FinalURL != "" {
+			finalURL = html.EscapeString(row.View.FinalURL)
+		}
+		statusClass, statusLabel := statusBadge(row.View.StatusCode)
+		errorText := "—"
+		if row.Error != "" {
+			errorText = html.EscapeString(row.Error)
+		}
+		fmt.Fprintf(
+			buf,
+			"<tr%s><td>%d</td><td><div class=\"url\">%s</div>%s</td><td><div class=\"url\">%s</div></td><td><span class=\"badge %s\">%s</span></td><td>%d</td><td>%d</td><td>%d&nbsp;ms</td><td>%s</td></tr>\n",
+			rowClass,
+			row.View.Index+1,
+			html.EscapeString(row.View.InputURL),
+			payloadMeta,
+			finalURL,
+			statusClass,
+			html.EscapeString(statusLabel),
+			row.CoreFindings,
+			row.PluginFindings,
+			row.View.DurationMs,
+			errorText,
+		)
+	}
+	fmt.Fprintln(buf, "</tbody>")
+	fmt.Fprintln(buf, "</table>")
+	fmt.Fprintln(buf, "</body>")
+	fmt.Fprintln(buf, "</html>")
+	return buf.Flush()
+}
+
+func statusBadge(status int) (class string, label string) {
+	if status == 0 {
+		return "neutral", "—"
+	}
+	if status == http.StatusFound {
+		return "good", "302"
+	}
+	return "bad", strconv.Itoa(status)
 }
 
 func ensureDir(path string) error {
@@ -356,7 +502,7 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 		}
 
 		if opts.summary {
-			fmt.Printf("[%d/%d] %s -> %s | status=%d | core=%d | plugin=%d | duration=%dms\n", i+1, total, view.InputURL, view.FinalURL, view.StatusCode, coreCount, pluginCount, view.DurationMs)
+			fmt.Printf("[%d/%d] %s -> %s | status=%s | core=%d | plugin=%d | duration=%dms\n", i+1, total, view.InputURL, view.FinalURL, statuscolor.Sprint(view.StatusCode), coreCount, pluginCount, view.DurationMs)
 			if hasError {
 				fmt.Printf("    error: %s\n", res.Error)
 			}
@@ -365,7 +511,7 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 
 		fmt.Printf("=== Target %d/%d ===\n", i+1, total)
 		statuscolor.PrintResult(res)
-		fmt.Printf("Final: %s (status %d, %d bytes)\n", view.FinalURL, view.StatusCode, view.RespLen)
+		fmt.Printf("Final: %s (status %s, %d bytes)\n", view.FinalURL, statuscolor.Sprint(view.StatusCode), view.RespLen)
 
 		coreFindings := filterFindings(res.Findings, func(f model.Finding) bool {
 			return f.Source == "" || strings.EqualFold(f.Source, "core")
