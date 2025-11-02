@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -15,8 +16,10 @@ import (
 	"time"
 
 	"github.com/selimozcann/RedirectHunter/internal/banner"
+	"github.com/selimozcann/RedirectHunter/internal/detect"
 	"github.com/selimozcann/RedirectHunter/internal/model"
 	"github.com/selimozcann/RedirectHunter/internal/output"
+	"github.com/selimozcann/RedirectHunter/internal/plugin"
 )
 
 func main() {
@@ -85,11 +88,16 @@ func main() {
 	_ = maxChain
 	_ = jsScan
 	_ = onlyRisky
-	_ = plugins
 
 	banner.PrintBanner()
 	if urlStr == "" {
 		fmt.Fprintln(os.Stderr, "[-] Error: -u (URL) is required")
+		os.Exit(1)
+	}
+
+	pluginsList, unknown := plugin.LoadWithWarnings(plugins)
+	if len(unknown) > 0 {
+		fmt.Fprintf(os.Stderr, "[-] Unknown plugin(s): %s\n", strings.Join(unknown, ", "))
 		os.Exit(1)
 	}
 
@@ -271,6 +279,7 @@ func main() {
 	}
 
 	jobCh := make(chan job, threads)
+	ctx := context.Background()
 	for i := 0; i < threads; i++ {
 		wg.Add(1)
 		go func() {
@@ -296,6 +305,18 @@ func main() {
 					fmt.Fprintf(os.Stderr, "[-] Request error (%s): %v\n", jb.URL, err)
 					stdoutMu.Unlock()
 					continue
+				}
+				if jb.PayloadTag != "" {
+					res.Payload = jb.PayloadTag
+				}
+				applyCoreDetections(&res)
+				for _, pl := range pluginsList {
+					findings := pl.Evaluate(ctx, &res)
+					if len(findings) == 0 {
+						continue
+					}
+					res.PluginFindings = append(res.PluginFindings, findings...)
+					res.Findings = append(res.Findings, findings...)
 				}
 				emit(res)
 			}
@@ -426,4 +447,22 @@ func doRequestWithRetries(client *http.Client, method, rawURL string, body []byt
 
 func backoff(attempt int) time.Duration {
 	return time.Duration(300*(attempt+1)) * time.Millisecond
+}
+
+func applyCoreDetections(res *model.Result) {
+	seen := make(map[string]struct{})
+	for _, hop := range res.Chain {
+		u, err := url.Parse(hop.URL)
+		if err != nil {
+			continue
+		}
+		if f := detect.SSRF(u, hop.Index); f != nil {
+			key := f.Type + "|" + f.Detail
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			res.Findings = append(res.Findings, *f)
+			seen[key] = struct{}{}
+		}
+	}
 }
