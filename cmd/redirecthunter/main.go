@@ -26,6 +26,7 @@ import (
 	"github.com/selimozcann/RedirectHunter/internal/runner"
 	"github.com/selimozcann/RedirectHunter/internal/statuscolor"
 	"github.com/selimozcann/RedirectHunter/internal/trace"
+	"github.com/selimozcann/RedirectHunter/internal/util"
 )
 
 type headerList []string
@@ -477,7 +478,7 @@ func renderTinySummaryHTML(w io.Writer, generatedAt time.Time, params map[string
 func statusBadge(view output.ResultView, hasError bool) (class string, label string) {
 	switch view.Type {
 	case output.ResultTypeRedirect:
-		return "good", "[REDIRECT]"
+		return "warn", "[OPEN REDIRECT]"
 	case output.ResultTypeUnredirect:
 		return "info", "[UNREDIRECT]"
 	case output.ResultTypeOK:
@@ -548,7 +549,7 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 			var label string
 			switch view.Type {
 			case output.ResultTypeRedirect:
-				label = statuscolor.WrapByStatus("[REDIRECT]", http.StatusFound)
+				label = statuscolor.WrapByStatus("[OPEN REDIRECT]", http.StatusFound)
 				totalRedirect++
 			case output.ResultTypeUnredirect:
 				label = statuscolor.Blue("[UNREDIRECT]")
@@ -618,7 +619,7 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 	}
 
 	if opts.summary {
-		fmt.Printf("Summary: ✅ %d redirects | 🌀 %d unredirects | ⚠️ %d ok | ❌ %d errors\n", totalRedirect, totalUnredirect, totalOK, totalError)
+		fmt.Printf("Summary: ✅ %d open redirects | 🌀 %d unredirects | ⚠️ %d ok | ❌ %d errors\n", totalRedirect, totalUnredirect, totalOK, totalError)
 	}
 }
 
@@ -634,10 +635,10 @@ func consoleAlerts(res model.Result, view output.ResultView) []string {
 }
 
 func isOpenRedirect(view output.ResultView) bool {
-	if view.FinalURL == "" {
+	if view.FinalURL == "" || view.InputURL == "" {
 		return false
 	}
-	return view.FinalURL != view.InputURL
+	return !util.SameBaseDomain(view.InputURL, view.FinalURL)
 }
 
 func hasSSRFContent(res model.Result) bool {
