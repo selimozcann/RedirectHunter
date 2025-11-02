@@ -27,11 +27,22 @@ func TestDetermineType(t *testing.T) {
 			want: output.ResultTypeRedirect,
 		},
 		{
-			name: "selfDomainRedirect",
+			name: "selfDomainRedirect302To200",
 			res: model.Result{
 				Target: "https://www.example.com",
 				Chain: []model.Hop{
 					{Status: http.StatusFound, URL: "https://www.example.com/go"},
+					{Status: http.StatusOK, URL: "https://example.com/welcome"},
+				},
+			},
+			want: output.ResultTypeRedirect,
+		},
+		{
+			name: "selfDomainRedirect301To200",
+			res: model.Result{
+				Target: "https://www.example.com",
+				Chain: []model.Hop{
+					{Status: http.StatusMovedPermanently, URL: "https://www.example.com/go"},
 					{Status: http.StatusOK, URL: "https://example.com/welcome"},
 				},
 			},

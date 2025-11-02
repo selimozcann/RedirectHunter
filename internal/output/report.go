@@ -166,14 +166,17 @@ func DetermineType(res model.Result) ResultType {
 		finalURL = last.URL
 		finalStatus = last.Status
 	}
+	if res.Error != "" {
+		return ResultTypeError
+	}
 	if hasRedirectHop(res.Chain) {
+		if has302To200(res.Chain) || !util.SameBaseDomain(res.Target, finalURL) {
+			return ResultTypeRedirect
+		}
 		if util.SameBaseDomain(res.Target, finalURL) {
 			return ResultTypeUnredirect
 		}
 		return ResultTypeRedirect
-	}
-	if res.Error != "" {
-		return ResultTypeError
 	}
 	switch {
 	case finalStatus == http.StatusOK:
@@ -190,6 +193,15 @@ func DetermineType(res model.Result) ResultType {
 func hasRedirectHop(chain []model.Hop) bool {
 	for _, hop := range chain {
 		if hop.Status >= 300 && hop.Status < 400 {
+			return true
+		}
+	}
+	return false
+}
+
+func has302To200(chain []model.Hop) bool {
+	for i := 0; i < len(chain)-1; i++ {
+		if chain[i].Status == http.StatusFound && chain[i+1].Status == http.StatusOK {
 			return true
 		}
 	}
