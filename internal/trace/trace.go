@@ -95,6 +95,9 @@ func (t *Tracer) Trace(ctx context.Context, target string, maxChain int, jsScan 
 			if f := detect.PhishingIndicators(body, i); f != nil {
 				res.Findings = append(res.Findings, *f)
 			}
+			if f := detect.SSRFIndicators(body, i); f != nil {
+				res.Findings = append(res.Findings, *f)
+			}
 			if jsScan && ok {
 				hop.Final = false
 				res.Chain = append(res.Chain, hop)

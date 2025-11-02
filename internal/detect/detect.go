@@ -2,6 +2,7 @@ package detect
 
 import (
 	"bytes"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -64,6 +65,32 @@ func PhishingIndicators(body []byte, hop int) *model.Finding {
 	isLowSeverity := bytes.Contains(lower, []byte("document.forms")) || bytes.Contains(lower, []byte("eval(")) || bytes.Contains(lower, []byte("username"))
 	if isLowSeverity {
 		return &model.Finding{Type: "PHISHING_INDICATOR", Severity: "low", AtHop: hop, Detail: "suspicious javascript", Source: "core"}
+	}
+	return nil
+}
+
+// SSRFIndicators inspects the response body for strings that typically point to
+// internal metadata services or loopback destinations. When a match is found it
+// returns a high severity finding so that console output can surface the
+// potential SSRF indicator alongside the redirect chain.
+func SSRFIndicators(body []byte, hop int) *model.Finding {
+	lower := bytes.ToLower(body)
+	keywords := [][]byte{
+		[]byte("localhost"),
+		[]byte("internal"),
+		[]byte("169.254"),
+		[]byte("metadata"),
+	}
+	for _, kw := range keywords {
+		if bytes.Contains(lower, kw) {
+			return &model.Finding{
+				Type:     "SSRF_CONTENT",
+				Severity: "high",
+				AtHop:    hop,
+				Detail:   fmt.Sprintf("response body contains %q", string(kw)),
+				Source:   "core",
+			}
+		}
 	}
 	return nil
 }

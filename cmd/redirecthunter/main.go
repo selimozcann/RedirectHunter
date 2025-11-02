@@ -26,6 +26,7 @@ import (
 	"github.com/selimozcann/RedirectHunter/internal/runner"
 	"github.com/selimozcann/RedirectHunter/internal/statuscolor"
 	"github.com/selimozcann/RedirectHunter/internal/trace"
+	"github.com/selimozcann/RedirectHunter/internal/util"
 )
 
 type headerList []string
@@ -477,7 +478,7 @@ func renderTinySummaryHTML(w io.Writer, generatedAt time.Time, params map[string
 func statusBadge(view output.ResultView, hasError bool) (class string, label string) {
 	switch view.Type {
 	case output.ResultTypeRedirect:
-		return "good", "[REDIRECT]"
+		return "good", "[OPEN REDIRECT]"
 	case output.ResultTypeUnredirect:
 		return "info", "[UNREDIRECT]"
 	case output.ResultTypeOK:
@@ -545,13 +546,20 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 				finalURL = "—"
 			}
 
+			badge := redirectBadge(view)
 			var label string
 			switch view.Type {
 			case output.ResultTypeRedirect:
-				label = statuscolor.WrapByStatus("[REDIRECT]", http.StatusFound)
+				label = badge
+				if label == "" {
+					label = statuscolor.WrapByStatus("[OPEN REDIRECT]", http.StatusFound)
+				}
 				totalRedirect++
 			case output.ResultTypeUnredirect:
-				label = statuscolor.Blue("[UNREDIRECT]")
+				label = badge
+				if label == "" {
+					label = statuscolor.Blue("[UNREDIRECT]")
+				}
 				totalUnredirect++
 			case output.ResultTypeOK:
 				label = statuscolor.WrapByStatus("[OK]", http.StatusOK)
@@ -577,6 +585,13 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 				pluginCount,
 				view.DurationMs,
 			)
+			alerts := consoleAlerts(res, view)
+			if badge != "" {
+				alerts = removeAlert(alerts, badge)
+			}
+			if len(alerts) > 0 {
+				line += " | " + strings.Join(alerts, " & ")
+			}
 			fmt.Println(line)
 			continue
 		}
@@ -607,12 +622,62 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 		if hasError {
 			fmt.Printf("Error: %s\n", res.Error)
 		}
-		fmt.Printf("Duration: %dms\n\n", view.DurationMs)
+		fmt.Printf("Duration: %dms\n", view.DurationMs)
+		if alerts := consoleAlerts(res, view); len(alerts) > 0 {
+			fmt.Printf("Alerts: %s\n", strings.Join(alerts, " & "))
+		}
+		fmt.Println()
 	}
 
 	if opts.summary {
 		fmt.Printf("Summary: ✅ %d redirects | 🌀 %d unredirects | ⚠️ %d ok | ❌ %d errors\n", totalRedirect, totalUnredirect, totalOK, totalError)
 	}
+}
+
+func consoleAlerts(res model.Result, view output.ResultView) []string {
+	var alerts []string
+	if badge := redirectBadge(view); badge != "" {
+		alerts = append(alerts, badge)
+	}
+	if hasSSRFContent(res) {
+		alerts = append(alerts, statuscolor.WrapByStatus("[SSRF DETECTED]", http.StatusForbidden))
+	}
+	return alerts
+}
+
+func redirectBadge(view output.ResultView) string {
+	if view.Type != output.ResultTypeRedirect && view.Type != output.ResultTypeUnredirect {
+		return ""
+	}
+	if view.InputURL == "" || view.FinalURL == "" || view.FinalURL == view.InputURL {
+		return ""
+	}
+	if util.SameBaseDomain(view.InputURL, view.FinalURL) {
+		return statuscolor.Blue("[UNREDIRECT]")
+	}
+	return statuscolor.WrapByStatus("[OPEN REDIRECT]", http.StatusFound)
+}
+
+func removeAlert(alerts []string, target string) []string {
+	if target == "" || len(alerts) == 0 {
+		return alerts
+	}
+	filtered := alerts[:0]
+	for _, alert := range alerts {
+		if alert != target {
+			filtered = append(filtered, alert)
+		}
+	}
+	return filtered
+}
+
+func hasSSRFContent(res model.Result) bool {
+	for _, f := range res.Findings {
+		if strings.EqualFold(f.Type, "SSRF_CONTENT") {
+			return true
+		}
+	}
+	return false
 }
 
 func countCoreFindings(findings []model.Finding) int {
