@@ -20,7 +20,7 @@ type ResultType string
 
 const (
 	ResultTypeUnknown    ResultType = "unknown"
-	ResultTypeRedirect   ResultType = "redirect"
+	ResultTypeRedirect   ResultType = "open_redirect"
 	ResultTypeUnredirect ResultType = "unredirect"
 	ResultTypeOK         ResultType = "ok"
 	ResultTypeError      ResultType = "error"
