@@ -577,6 +577,9 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 				pluginCount,
 				view.DurationMs,
 			)
+			if alerts := consoleAlerts(res, view); len(alerts) > 0 {
+				line += " | " + strings.Join(alerts, " & ")
+			}
 			fmt.Println(line)
 			continue
 		}
@@ -607,12 +610,43 @@ func printConsole(results []model.Result, views []output.ResultView, opts option
 		if hasError {
 			fmt.Printf("Error: %s\n", res.Error)
 		}
-		fmt.Printf("Duration: %dms\n\n", view.DurationMs)
+		fmt.Printf("Duration: %dms\n", view.DurationMs)
+		if alerts := consoleAlerts(res, view); len(alerts) > 0 {
+			fmt.Printf("Alerts: %s\n", strings.Join(alerts, " & "))
+		}
+		fmt.Println()
 	}
 
 	if opts.summary {
 		fmt.Printf("Summary: ✅ %d redirects | 🌀 %d unredirects | ⚠️ %d ok | ❌ %d errors\n", totalRedirect, totalUnredirect, totalOK, totalError)
 	}
+}
+
+func consoleAlerts(res model.Result, view output.ResultView) []string {
+	var alerts []string
+	if isOpenRedirect(view) {
+		alerts = append(alerts, statuscolor.WrapByStatus("[OPEN REDIRECT]", http.StatusFound))
+	}
+	if hasSSRFContent(res) {
+		alerts = append(alerts, statuscolor.WrapByStatus("[SSRF DETECTED]", http.StatusForbidden))
+	}
+	return alerts
+}
+
+func isOpenRedirect(view output.ResultView) bool {
+	if view.FinalURL == "" {
+		return false
+	}
+	return view.FinalURL != view.InputURL
+}
+
+func hasSSRFContent(res model.Result) bool {
+	for _, f := range res.Findings {
+		if strings.EqualFold(f.Type, "SSRF_CONTENT") {
+			return true
+		}
+	}
+	return false
 }
 
 func countCoreFindings(findings []model.Finding) int {
