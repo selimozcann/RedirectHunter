@@ -35,7 +35,7 @@ func TestDetermineType(t *testing.T) {
 					{Status: http.StatusOK, URL: "https://example.com/welcome"},
 				},
 			},
-			want: output.ResultTypeRedirect,
+			want: output.ResultTypeUnredirect,
 		},
 		{
 			name: "selfDomainRedirect301To200",

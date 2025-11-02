@@ -170,9 +170,6 @@ func DetermineType(res model.Result) ResultType {
 		return ResultTypeError
 	}
 	if hasRedirectHop(res.Chain) {
-		if has302To200(res.Chain) || !util.SameBaseDomain(res.Target, finalURL) {
-			return ResultTypeRedirect
-		}
 		if util.SameBaseDomain(res.Target, finalURL) {
 			return ResultTypeUnredirect
 		}
