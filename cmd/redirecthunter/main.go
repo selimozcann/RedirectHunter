@@ -26,7 +26,6 @@ import (
 	"github.com/selimozcann/RedirectHunter/internal/runner"
 	"github.com/selimozcann/RedirectHunter/internal/statuscolor"
 	"github.com/selimozcann/RedirectHunter/internal/trace"
-	"github.com/selimozcann/RedirectHunter/internal/util"
 )
 
 type headerList []string
@@ -635,10 +634,7 @@ func consoleAlerts(res model.Result, view output.ResultView) []string {
 }
 
 func isOpenRedirect(view output.ResultView) bool {
-	if view.FinalURL == "" || view.InputURL == "" {
-		return false
-	}
-	return !util.SameBaseDomain(view.InputURL, view.FinalURL)
+	return view.Type == output.ResultTypeRedirect
 }
 
 func hasSSRFContent(res model.Result) bool {
