@@ -1,21 +1,29 @@
 # RedirectHunter
 
-RedirectHunter is a security-focused command-line tool that discovers and traces full redirect chains. It follows server-side HTTP 3xx, HTML meta refreshes, and JavaScript redirects, then scores risky behaviour such as open redirects, token leakage, SSRF, or HTTPS downgrades.
+RedirectHunter is a security-first URL tracing toolkit that maps every hop in a redirect chain and highlights abuse-ready behaviour along the way. It understands server responses, HTML meta refreshes, and client-side JavaScript redirects, then enriches each hop with detections such as SSRF, HTTPS downgrade, token leakage, and phishing indicators. Results can be streamed to JSONL and HTML simultaneously, making the tool equally useful in terminals and pipelines.
 
-## Features
+## Highlights
 
-- Deterministic dual-report output: JSONL and HTML can be generated at the same time.
-- Built-in summary dashboard with client-side filtering in the HTML report.
-- Severity scoring for findings (low/medium/high) and plugin-sourced insights.
-- Plugin system with a built-in final URL SSRF detector.
-- Configurable HTTP client with custom headers, cookies, proxies, retries, and TLS controls.
-- Response size, duration, loop detection, phishing heuristics, and JS/meta redirect tracing.
-- Output modes: default, `--silent`, `--summary`, and `--only-risky` for console output control.
-- Rate-limited parallel scanning (default 10 threads) suitable for CI/CD pipelines.
+- **Deterministic reports** – JSONL and HTML outputs are written in a single pass so that automation can diff, archive, or re-use findings without post-processing.
+- **First-class SSRF detection** – internal destinations are flagged both while tracing and after the final hop (via the `final-ssrf` plugin). The `postfuzz` helper now runs the same checks for body fuzzing workflows.
+- **Client-side redirect discovery** – optional DOM inspection follows meta refreshes and JavaScript-driven relocations to surface deep chains.
+- **Scalable scanning** – rate limiting, concurrency control, retries, and configurable headers/cookies make the CLI suitable for CI/CD and large target lists.
+- **Plugin system** – drop-in evaluators can run after each trace. The built-in `final-ssrf` plugin is enabled by default; add your own by extending `internal/plugin`.
 
-## Quick Start
+## Installation
 
-The canonical run below exercises fuzzing, plugin loading, JSONL output, and the HTML report in one command. Copy/paste the snippet as-is; it writes sample artefacts to `./examples/` which are also committed to the repository for reference.
+RedirectHunter is a Go module. With Go 1.21+ installed:
+
+```bash
+go install github.com/selimozcann/RedirectHunter/cmd/redirecthunter@latest
+go install github.com/selimozcann/RedirectHunter/cmd/postfuzz@latest
+```
+
+The binaries appear in `$(go env GOPATH)/bin`. You can also run either tool with `go run` during development.
+
+## Usage
+
+### Redirect chain discovery (`redirecthunter`)
 
 ```bash
 go run ./cmd/redirecthunter \
@@ -26,56 +34,71 @@ go run ./cmd/redirecthunter \
   -o ./examples/example.out.jsonl -html ./examples/example.report.html
 ```
 
-Key behaviours demonstrated by the command:
+What the command does:
 
-- Loads `wordlist.txt` and replaces the single `FUZZ` token in the URL for each payload.
-- Runs 20 concurrent workers with a rate limit of 5 requests/second and resilient HTTP retries.
-- Enables JavaScript/meta redirect detection, insecure TLS for lab testing, and the `final-ssrf` plugin.
-- Emits deterministic JSONL and HTML reports (overwriting if the files already exist) while printing a concise console summary.
+1. Loads `wordlist.txt` and substitutes the single `FUZZ` token in `-u` for each payload.
+2. Runs 20 workers with a 5 rps global rate limit, resilient retries, and relaxed TLS for lab work.
+3. Enables JavaScript/meta redirect detection and the default `final-ssrf` plugin.
+4. Streams JSONL and HTML reports while printing a concise console summary. Existing files are overwritten for deterministic CI artefacts.
 
-POST body fuzzing (postfuzz mode)
+### Body fuzzing with shared detections (`postfuzz`)
+
+`postfuzz` drives single-request workflows (POST/PUT/GET) where the request body contains the fuzz point. Core SSRF detection now runs on every response and plugins execute just like the main CLI.
+
 ```bash
-go run ./cmd/postfuzz/main.go \
-  -u https://api.host.com/endpoint \
+go run ./cmd/postfuzz \
+  -u https://api.host.test/endpoint \
   -X POST \
   --body '{"url": "FUZZ"}' \
-  --payloads payloads/ssrf.txt \
+  --payloads ssrf_payloads.txt \
   --content-type application/json \
-  -v
+  -t 5 -rl 2 -retries 2 \
+  -o out.jsonl -html report.html
 ```
 
+Each payload expands `FUZZ` inside the JSON body, executes the request with retry/backoff logic, then emits findings. If the final URL resolves to an internal address the run is flagged as `SSRF` (core detection) and `FINAL_SSRF` (plugin). Console output mirrors the chain view and HTML/JSONL writers used by the main binary.
 
-## Common Flags
+### Frequent flags
 
-| Flag | Description |
-| ---- | ----------- |
-| `-u` | Target URL (supports a single `FUZZ` token for fuzzing). |
-| `-w` | Wordlist file used to expand `FUZZ` into concrete payloads. |
-| `-t` | Number of concurrent workers (default `10`). |
-| `-rl` | Rate limit in requests/second; `0` disables throttling. |
+| Flag | Purpose |
+| ---- | ------- |
+| `-u` | Target URL. Both tools support a single `FUZZ` token for payload substitution. |
+| `-w` | Wordlist for URL fuzzing. |
+| `-payloads` | Wordlist for body fuzzing (falls back to `-w` when omitted). |
+| `-t` | Concurrent workers (default `10`). |
+| `-rl` | Global rate limit in requests/second (`0` disables limiting). |
 | `-timeout` | Per-request timeout (default `8s`). |
-| `-retries` | Automatic HTTP retry count (default `1`). |
-| `-max-chain` | Maximum hops (server or client side) followed per target (default `15`). |
-| `-js-scan` | Enable client-side redirect detection (`true` by default). |
+| `-retries` | Automatic retry count (default `1`). |
+| `-max-chain` | Maximum redirect hops (default `15`). |
+| `-js-scan` | Toggle client-side redirect detection (enabled by default). |
 | `-cookie` | Cookie header injected into every request. |
 | `-H` | Extra HTTP headers (`-H 'Key: Value'`, repeatable). |
 | `-proxy` | HTTP(S) proxy URL. |
-| `-insecure` | Skip TLS certificate verification (lab use only). |
-| `-summary` | Print one-line summaries instead of full chains. |
-| `-silent` | Suppress console output (still writes files). |
-| `-only-risky` | Print only targets with findings or errors. |
-| `-plugins` | Comma-separated plugin list (default `final-ssrf`). |
-| `-o` | JSONL output path; overwritten if it exists. |
-| `-html` | HTML report output path; overwritten if it exists. |
+| `-insecure` | Skip TLS verification (lab use only). |
+| `-plugins` | Comma-separated plugin list (`final-ssrf` by default). |
+| `-o` | JSONL output path. |
+| `-html` | HTML report output path. |
 
-Instance output.jsonl
-```bash
-{"timestamp":"2024-04-01T12:00:00Z","input_url":"https://host/redirect-to?url=https://internal","payload":"https://internal","final_url":"https://internal","redirect_chain":["https://host/redirect-to?url=https://internal","https://internal"],"status_code":200,"resp_len":512,"duration_ms":142,"findings":[{"type":"HTTPS_DOWNGRADE","at_hop":1,"severity":"medium","detail":"https:// -> http://","source":"core"}],"plugin_findings":[{"type":"FINAL_SSRF","at_hop":1,"severity":"high","detail":"https://internal","source":"final-ssrf"}]}
+## Findings and reports
+
+A single JSONL line from `redirecthunter`:
+
+```json
+{"timestamp":"2024-04-01T12:00:00Z","input_url":"https://host/redirect-to?url=https://internal","payload":"https://internal","final_url":"https://internal","redirect_chain":["https://host/redirect-to?url=https://internal","https://internal"],"status_code":200,"resp_len":512,"duration_ms":142,"findings":[{"type":"HTTPS_DOWNGRADE","at_hop":1,"severity":"medium","detail":"https:// -> http://","source":"core"},{"type":"FINAL_SSRF","at_hop":1,"severity":"high","detail":"https://internal","source":"final-ssrf"}]}
 ```
-## Legal Disclaimer
-- You have explicit written permission to test any target system.
-- You will not use this software for any unauthorized access, scanning, or disruption of services.
-- Usage against government, financial, or healthcare infrastructure without authorization is strictly prohibited.
-- The developer disclaims all liability for misuse or damage caused by unauthorized use.
 
+The HTML report mirrors the same data: each section lists the redirect chain, followed by colour-coded findings with severity badges. Both output formats are deterministic to ease diffing and archival.
 
+## Development
+
+```bash
+go test ./...
+```
+
+Pull requests and custom plugins are welcome. The codebase favours readability and standard library solutions so that extending detections or outputs stays straightforward.
+
+## Legal notice
+
+- Only scan targets for which you have explicit, written permission.
+- Do not use this software to gain unauthorized access, disrupt services, or target regulated infrastructure (government, healthcare, finance) without consent.
+- The authors disclaim all liability for misuse or damage resulting from unauthorized activities.
